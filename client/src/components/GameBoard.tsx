@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Chessground } from 'chessground';
+import { Chess } from 'chess.js';
 import type { Api } from 'chessground/api';
 import type { Config } from 'chessground/config';
 import 'chessground/assets/chessground.base.css';
@@ -17,6 +18,7 @@ interface GameBoardProps {
     turn: 'white' | 'black';
     lastMove?: LastMoveDetails;
     onRequestRoyalLink?: (from: string, to: string, targetPortalId: string) => void;
+    isPractice?: boolean;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -27,38 +29,39 @@ const GameBoard: React.FC<GameBoardProps> = ({
     turn,
     lastMove,
     onRequestRoyalLink,
+    isPractice,
 }) => {
     const boardRef = useRef<HTMLDivElement>(null);
     const [api, setApi] = useState<Api | null>(null);
     const chessRef = useRef<any>(null);
     const [pendingRoyalMove, setPendingRoyalMove] = useState<{ from: string; to: string } | null>(null);
 
+    const activeMovableColor = isPractice ? turn : orientation;
+
     useEffect(() => {
-        if (window.Chess) {
-            chessRef.current = new window.Chess(fen);
-        }
+        chessRef.current = new Chess(fen);
         if (api && chessRef.current) {
             api.set({
                 fen,
                 turnColor: turn,
                 movable: {
-                    color: orientation,
-                    dests: getDests(chessRef.current, orientation),
+                    color: activeMovableColor,
+                    dests: getDests(chessRef.current, activeMovableColor),
                 },
             });
         }
-    }, [fen, turn, orientation, api]);
+    }, [fen, turn, orientation, api, activeMovableColor]);
 
     useEffect(() => {
-        if (boardRef.current && !api && window.Chess) {
-            const chess = new window.Chess(fen);
+        if (boardRef.current && !api) {
+            const chess = new Chess(fen);
             const config: Config = {
                 fen,
                 orientation,
                 movable: {
-                    color: orientation,
+                    color: activeMovableColor,
                     free: false,
-                    dests: getDests(chess, orientation),
+                    dests: getDests(chess, activeMovableColor),
                     events: {
                         after: (orig, dest) => {
                             const piece = chessRef.current?.get(orig);

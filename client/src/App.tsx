@@ -216,6 +216,7 @@ function App() {
               turn={gameState.turn === 'w' ? 'white' : 'black'}
               lastMove={gameState.lastMove}
               onRequestRoyalLink={requestRoyalLink}
+              isPractice={mode === 'practice'}
             />
           </div>
 

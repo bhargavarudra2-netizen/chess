@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { Chess } from 'chess.js';
 import type { GameState, LastMoveDetails, Portal } from '../types';
 import {
     playMoveSound,
@@ -22,6 +23,14 @@ interface MoveResponsePayload {
     finalDest?: { r: number; c: number };
     move?: { from: string; to: string; promotion?: string };
 }
+
+// Safe compatibility helpers for chess.js version variants
+const checkGameOver = (c: any): boolean =>
+    typeof c.isGameOver === 'function' ? c.isGameOver() : (typeof c.game_over === 'function' ? c.game_over() : false);
+const checkCheckmate = (c: any): boolean =>
+    typeof c.isCheckmate === 'function' ? c.isCheckmate() : (typeof c.in_checkmate === 'function' ? c.in_checkmate() : false);
+const checkDraw = (c: any): boolean =>
+    typeof c.isDraw === 'function' ? c.isDraw() : (typeof c.in_draw === 'function' ? c.in_draw() : false);
 
 // Generate default initial portals for local practice mode
 const generatePracticePortals = (): Portal[] => {
@@ -242,9 +251,7 @@ export const useChessGame = () => {
     const startPractice = useCallback(() => {
         setError(null);
         const portals = generatePracticePortals();
-        if (window.Chess) {
-            practiceChessRef.current = new window.Chess();
-        }
+        practiceChessRef.current = new Chess();
         setRoomId('local-sandbox');
         setPlayerColor('white');
         setClocks({ white: 600, black: 600 });
@@ -271,7 +278,7 @@ export const useChessGame = () => {
     const makeMove = useCallback((from: string, to: string) => {
         if (mode === 'practice') {
             // Handle local move in sandbox mode
-            const chess = practiceChessRef.current || (window.Chess ? new window.Chess(gameState?.fen) : null);
+            const chess = practiceChessRef.current || new Chess(gameState?.fen);
             if (!chess) return;
 
             const moveRes = chess.move({ from, to, promotion: 'q' });
@@ -313,8 +320,8 @@ export const useChessGame = () => {
                     fen: finalFen,
                     turn: chess.turn(),
                     history: [...prev.history, moveRes.san],
-                    isGameOver: chess.isGameOver(),
-                    winner: chess.isCheckmate() ? (chess.turn() === 'w' ? 'black' : 'white') : (chess.isDraw() ? 'draw' : null),
+                    isGameOver: checkGameOver(chess),
+                    winner: checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null),
                     lastMove: {
                         from,
                         to,
@@ -354,7 +361,7 @@ export const useChessGame = () => {
 
     const requestRoyalLink = useCallback((from: string, to: string, linkPortalId: string) => {
         if (mode === 'practice') {
-            const chess = practiceChessRef.current || (window.Chess ? new window.Chess(gameState?.fen) : null);
+            const chess = practiceChessRef.current || new Chess(gameState?.fen);
             if (!chess) return;
 
             const moveRes = chess.move({ from, to, promotion: 'q' });
@@ -394,8 +401,8 @@ export const useChessGame = () => {
                     turn: chess.turn(),
                     portals: updatedPortals,
                     history: [...prev.history, `${moveRes.san} (👑)`],
-                    isGameOver: chess.isGameOver(),
-                    winner: chess.isCheckmate() ? (chess.turn() === 'w' ? 'black' : 'white') : (chess.isDraw() ? 'draw' : null),
+                    isGameOver: checkGameOver(chess),
+                    winner: checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null),
                     lastMove: {
                         from,
                         to,
