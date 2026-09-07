@@ -26,6 +26,7 @@ export class GameService {
         portals: Portal[];
         clocks: { white: number; black: number };
         lastMoveTime: number;
+        manualResult?: { isGameOver: boolean; winner: 'white' | 'black' | 'draw' };
     }>();
 
     constructor(
@@ -74,19 +75,34 @@ export class GameService {
             }
         }
 
+        const isGameOver = game.manualResult ? game.manualResult.isGameOver : game.chess.isGameOver();
+        const winner = game.manualResult
+            ? game.manualResult.winner
+            : (game.chess.isCheckmate()
+                ? (game.chess.turn() === 'w' ? 'black' : 'white')
+                : game.chess.isDraw()
+                    ? 'draw'
+                    : null);
+
         return {
             fen: game.chess.fen(),
             turn: game.chess.turn(),
             portals: game.portals,
             history: game.chess.history({ verbose: true }),
-            isGameOver: game.chess.isGameOver(),
-            winner: game.chess.isCheckmate()
-                ? (game.chess.turn() === 'w' ? 'black' : 'white')
-                : game.chess.isDraw()
-                    ? 'draw'
-                    : null,
+            isGameOver,
+            winner,
             clocks: currentClocks
         };
+    }
+
+    resignGame(roomId: string, resigningColor: 'white' | 'black'): GameState | null {
+        const game = this.games.get(roomId);
+        if (!game) return null;
+        game.manualResult = {
+            isGameOver: true,
+            winner: resigningColor === 'white' ? 'black' : 'white',
+        };
+        return this.getGameState(roomId);
     }
 
     async processMove(roomId: string, from: string, to: string, promotion: string = 'q', portalTargetId?: string) {

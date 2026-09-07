@@ -8,9 +8,8 @@ import {
     OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-// import { createAdapter } from '@socket.io/redis-adapter';
 import { GameService } from './game.service';
-import { RedisService } from './redis.service';
+import { MatchmakingService } from './matchmaking.service';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -19,11 +18,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     constructor(
         private readonly gameService: GameService,
-        // private readonly redisService: RedisService
+        private readonly matchmakingService: MatchmakingService,
     ) { }
 
     afterInit() {
-        // In-memory adapter is default
+        // Gateway initialized
     }
 
     handleConnection(client: Socket) {
@@ -32,6 +31,59 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     handleDisconnect(client: Socket) {
         console.log(`Client disconnected: ${client.id}`);
+        this.matchmakingService.removeFromQueue(client.id);
+    }
+
+    @SubscribeMessage('join_queue')
+    async handleJoinQueue(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() payload: { playerId?: string; rating?: number } = {},
+    ) {
+        const playerId = payload.playerId || `guest_${client.id.slice(0, 5)}`;
+        const match = await this.matchmakingService.addToQueue(client, playerId, payload.rating || 1200);
+
+        if (match) {
+            const opponentSocket = this.server.sockets.sockets.get(match.opponentSocketId);
+            const state = this.gameService.getGameState(match.gameId);
+
+            client.join(match.gameId);
+            if (opponentSocket) {
+                opponentSocket.join(match.gameId);
+                opponentSocket.emit('match_found', {
+                    gameId: match.gameId,
+                    color: 'white',
+                    opponent: playerId,
+                    initialState: state,
+                });
+            }
+
+            client.emit('match_found', {
+                gameId: match.gameId,
+                color: 'black',
+                opponent: match.white,
+                initialState: state,
+            });
+        } else {
+            client.emit('queue_joined', { ok: true, message: 'Searching for opponent...' });
+        }
+    }
+
+    @SubscribeMessage('leave_queue')
+    async handleLeaveQueue(@ConnectedSocket() client: Socket) {
+        await this.matchmakingService.removeFromQueue(client.id);
+        client.emit('queue_left', { ok: true });
+    }
+
+    @SubscribeMessage('create_private_room')
+    async handleCreatePrivateRoom(@ConnectedSocket() client: Socket) {
+        const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const state = await this.gameService.createGame(roomId);
+        client.join(roomId);
+        client.emit('room_created', {
+            gameId: roomId,
+            color: 'white',
+            initialState: state,
+        });
     }
 
     @SubscribeMessage('join_room')
@@ -48,7 +100,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             state = await this.gameService.createGame(gameId);
         }
 
-        // Determine color (simple logic for now)
+        // Determine color based on room occupants
         const room = this.server.sockets.adapter.rooms.get(gameId);
         const clients = room ? Array.from(room) : [];
         let color = 'spectator';
@@ -58,8 +110,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('game_start', {
             gameId,
             color,
-            initialState: state
+            initialState: state,
         });
+
+        // If second player joined, notify existing player that game can begin
+        if (clients.length === 2) {
+            this.server.to(gameId).emit('player_joined', {
+                gameId,
+                color,
+                totalPlayers: 2,
+            });
+        }
     }
 
     @SubscribeMessage('make_move')
@@ -69,14 +130,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     ) {
         try {
             const result = await this.gameService.processMove(payload.gameId, payload.from, payload.to, payload.promotion);
-
-            // Send result to mover
             client.emit('move_result', { ok: true, ...result });
-
-            // Broadcast to opponent (exclude mover? or just broadcast to room and mover ignores?)
-            // Protocol says: "broadcast opponent_move to other player(s)"
             client.to(payload.gameId).emit('opponent_move', result);
-
         } catch (e) {
             client.emit('move_result', { ok: false, error: e.message });
         }
@@ -94,5 +149,33 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         } catch (e) {
             client.emit('move_result', { ok: false, error: e.message });
         }
+    }
+
+    @SubscribeMessage('resign')
+    async handleResign(
+        @MessageBody() payload: { gameId: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        const room = this.server.sockets.adapter.rooms.get(payload.gameId);
+        const clients = room ? Array.from(room) : [];
+        const isFirstPlayer = clients[0] === client.id;
+        const resigningColor = isFirstPlayer ? 'white' : 'black';
+        const winner = resigningColor === 'white' ? 'black' : 'white';
+        const newState = this.gameService.resignGame(payload.gameId, resigningColor);
+
+        this.server.to(payload.gameId).emit('game_over', {
+            reason: 'resignation',
+            resignedColor: resigningColor,
+            winner,
+            newState,
+        });
+    }
+
+    @SubscribeMessage('offer_draw')
+    async handleOfferDraw(
+        @MessageBody() payload: { gameId: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        client.to(payload.gameId).emit('draw_offered', { fromSocketId: client.id });
     }
 }
