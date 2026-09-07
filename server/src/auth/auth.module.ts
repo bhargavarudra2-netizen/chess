@@ -5,11 +5,12 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../database/entities/user.entity';
+import { Game } from '../database/entities/game.entity';
 import { AuthController } from './auth.controller';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([User, Game]),
         PassportModule,
         JwtModule.register({
             secret: 'SECRET_KEY_CHANGE_ME',
