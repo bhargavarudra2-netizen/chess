@@ -21,6 +21,7 @@ function App() {
     startPractice,
     leaveToLobby,
     makeMove,
+    requestRoyalLink,
     resign,
     requestDraw,
     error,
@@ -110,6 +111,7 @@ function App() {
               onMove={makeMove}
               turn={gameState.turn === 'w' ? 'white' : 'black'}
               lastMove={gameState.lastMove}
+              onRequestRoyalLink={requestRoyalLink}
             />
           </div>
 

@@ -7,6 +7,7 @@ import 'chessground/assets/chessground.brown.css';
 import 'chessground/assets/chessground.cburnett.css';
 import type { Portal, LastMoveDetails } from '../types';
 import PortalOverlay from './PortalOverlay';
+import RoyalLinkModal from './RoyalLinkModal';
 
 interface GameBoardProps {
     fen: string;
@@ -15,6 +16,7 @@ interface GameBoardProps {
     onMove: (from: string, to: string) => void;
     turn: 'white' | 'black';
     lastMove?: LastMoveDetails;
+    onRequestRoyalLink?: (from: string, to: string, targetPortalId: string) => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -24,10 +26,12 @@ const GameBoard: React.FC<GameBoardProps> = ({
     onMove,
     turn,
     lastMove,
+    onRequestRoyalLink,
 }) => {
     const boardRef = useRef<HTMLDivElement>(null);
     const [api, setApi] = useState<Api | null>(null);
     const chessRef = useRef<any>(null);
+    const [pendingRoyalMove, setPendingRoyalMove] = useState<{ from: string; to: string } | null>(null);
 
     useEffect(() => {
         if (window.Chess) {
@@ -57,7 +61,16 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     dests: getDests(chess, orientation),
                     events: {
                         after: (orig, dest) => {
-                            onMove(orig, dest);
+                            const piece = chessRef.current?.get(orig);
+                            const isKing = piece && piece.type === 'k';
+                            const moveCount = chessRef.current?.history().length || 0;
+                            const isBeforeMove15 = Math.floor(moveCount / 2) < 15;
+
+                            if (isKing && isBeforeMove15 && onRequestRoyalLink && portals.length > 0) {
+                                setPendingRoyalMove({ from: orig, to: dest });
+                            } else {
+                                onMove(orig, dest);
+                            }
                         },
                     },
                 },
@@ -72,7 +85,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             const newApi = Chessground(boardRef.current, config);
             setApi(newApi);
         }
-    }, [boardRef, fen, orientation, onMove, api]);
+    }, [boardRef, fen, orientation, onMove, api, onRequestRoyalLink, portals.length]);
 
     // Helper to get valid destinations from chess.js
     const getDests = (chess: any, color: 'white' | 'black') => {
@@ -93,13 +106,30 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 position: 'relative',
                 width: '600px',
                 height: '600px',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 overflow: 'hidden',
-                boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1)',
             }}
         >
             <div ref={boardRef} style={{ width: '100%', height: '100%' }} />
             <PortalOverlay portals={portals} orientation={orientation} lastMove={lastMove} />
+
+            {/* Royal Link Activation Dialog */}
+            {pendingRoyalMove && (
+                <RoyalLinkModal
+                    fromSquare={pendingRoyalMove.from}
+                    toSquare={pendingRoyalMove.to}
+                    portals={portals}
+                    onConfirm={targetPortalId => {
+                        onRequestRoyalLink?.(pendingRoyalMove.from, pendingRoyalMove.to, targetPortalId);
+                        setPendingRoyalMove(null);
+                    }}
+                    onSkip={() => {
+                        onMove(pendingRoyalMove.from, pendingRoyalMove.to);
+                        setPendingRoyalMove(null);
+                    }}
+                />
+            )}
         </div>
     );
 };

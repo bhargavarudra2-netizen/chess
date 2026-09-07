@@ -195,13 +195,16 @@ export class GameService {
             const newPortalId = `royal_${Date.now()}`;
             const target = portals.find(p => p.id === portalTargetId);
             if (target) {
+                const royalColor = '#FFD700';
                 portals.push({
                     id: newPortalId,
                     r: fromSq.r,
                     c: fromSq.c,
                     linkedTo: target.id,
-                    color: '#FFD700'
+                    color: royalColor
                 });
+                target.linkedTo = newPortalId;
+                target.color = royalColor;
             }
         }
 

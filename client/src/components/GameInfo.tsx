@@ -136,6 +136,27 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                     </div>
                 )}
 
+                {/* Royal Link Status Banner */}
+                {!isGameOver && Math.floor(history.length / 2) < 15 && (
+                    <div
+                        style={{
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(255, 215, 0, 0.1)',
+                            border: '1px solid rgba(255, 215, 0, 0.3)',
+                            color: '#fef08a',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                        }}
+                    >
+                        <span>👑 Royal Link Active</span>
+                        <span style={{ fontSize: '10px', color: '#ffd700' }}>Move King before turn 15</span>
+                    </div>
+                )}
+
                 {lastMove?.teleported && (
                     <div
                         style={{

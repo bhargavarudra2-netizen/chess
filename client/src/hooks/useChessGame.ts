@@ -7,6 +7,7 @@ import {
     playTeleportSound,
     playCheckSound,
     playGameOverSound,
+    playRoyalLinkSound,
 } from '../utils/soundEffects';
 import { resolvePortalDestination } from '../utils/portalRules';
 
@@ -351,6 +352,71 @@ export const useChessGame = () => {
         socketRef.current.emit('offer_draw', { gameId: roomId });
     }, [mode, roomId]);
 
+    const requestRoyalLink = useCallback((from: string, to: string, linkPortalId: string) => {
+        if (mode === 'practice') {
+            const chess = practiceChessRef.current || (window.Chess ? new window.Chess(gameState?.fen) : null);
+            if (!chess) return;
+
+            const moveRes = chess.move({ from, to, promotion: 'q' });
+            if (!moveRes) {
+                setError('Illegal move');
+                return;
+            }
+
+            const fromRank = 8 - parseInt(from[1], 10);
+            const fromFile = from.charCodeAt(0) - 97;
+            const newPortalId = `royal_${Date.now()}`;
+            const royalColor = '#FFD700';
+
+            const updatedPortals = (gameState?.portals || []).map(p => {
+                if (p.id === linkPortalId) {
+                    return { ...p, linkedTo: newPortalId, color: royalColor };
+                }
+                return p;
+            });
+
+            updatedPortals.push({
+                id: newPortalId,
+                r: fromRank,
+                c: fromFile,
+                linkedTo: linkPortalId,
+                color: royalColor,
+            });
+
+            playRoyalLinkSound();
+            setError(null);
+
+            setGameState(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    fen: chess.fen(),
+                    turn: chess.turn(),
+                    portals: updatedPortals,
+                    history: [...prev.history, `${moveRes.san} (👑)`],
+                    isGameOver: chess.isGameOver(),
+                    winner: chess.isCheckmate() ? (chess.turn() === 'w' ? 'black' : 'white') : (chess.isDraw() ? 'draw' : null),
+                    lastMove: {
+                        from,
+                        to,
+                        san: moveRes.san,
+                        teleported: false,
+                    },
+                };
+            });
+            return;
+        }
+
+        if (!socketRef.current || !roomId) return;
+        playRoyalLinkSound();
+        socketRef.current.emit('request_royal_link', {
+            gameId: roomId,
+            from,
+            to,
+            linkPortalId,
+        });
+    }, [mode, roomId, gameState?.fen, gameState?.portals]);
+
     return {
         mode,
         roomId,
@@ -367,6 +433,7 @@ export const useChessGame = () => {
         startPractice,
         leaveToLobby,
         makeMove,
+        requestRoyalLink,
         resign,
         requestDraw,
         error,

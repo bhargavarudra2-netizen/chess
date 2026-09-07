@@ -152,3 +152,26 @@ export const playGameOverSound = () => {
         osc.stop(ctx.currentTime + index * 0.08 + 0.52);
     });
 };
+
+export const playRoyalLinkSound = () => {
+    if (!soundEnabled) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    // Majestic ascending arpeggio (C5, E5, G5, C6) with lingering shimmer
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.09);
+
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + idx * 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.09 + 0.6);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + idx * 0.09);
+        osc.stop(ctx.currentTime + idx * 0.09 + 0.65);
+    });
+};
+
