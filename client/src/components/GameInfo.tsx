@@ -13,8 +13,11 @@ interface GameInfoProps {
     winner: string | null;
     clocks: { white: number; black: number };
     lastMove?: LastMoveDetails;
+    mode?: string;
+    aiDifficulty?: string;
     onResign?: () => void;
     onRequestDraw?: () => void;
+    onFlipBoard?: () => void;
 }
 
 export const GameInfo: React.FC<GameInfoProps> = ({
@@ -26,8 +29,11 @@ export const GameInfo: React.FC<GameInfoProps> = ({
     winner,
     clocks,
     lastMove,
+    mode = 'game',
+    aiDifficulty,
     onResign,
     onRequestDraw,
+    onFlipBoard,
 }) => {
     const historyEndRef = useRef<HTMLDivElement>(null);
     const [soundOn, setSoundOn] = useState(isSoundEnabled());
@@ -46,6 +52,46 @@ export const GameInfo: React.FC<GameInfoProps> = ({
     const isCheck = history.length > 0 && history[history.length - 1]?.includes('+');
     const isCheckmate = isGameOver && winner && winner !== 'draw';
 
+    const getOpponentName = () => {
+        if (mode === 'vs_ai') {
+            const diffLabel = aiDifficulty ? aiDifficulty.charAt(0).toUpperCase() + aiDifficulty.slice(1) : 'Adept';
+            return `🤖 Quantum AI (${diffLabel})`;
+        }
+        if (mode === 'pass_and_play') {
+            return playerColor === 'black' ? 'Player 1 (White)' : 'Player 2 (Black)';
+        }
+        if (mode === 'practice') {
+            return playerColor === 'black' ? 'White (Sandbox)' : 'Black (Sandbox)';
+        }
+        return playerColor === 'black' ? 'Opponent (White)' : 'Opponent (Black)';
+    };
+
+    const getPlayerName = () => {
+        if (mode === 'vs_ai') {
+            return playerColor === 'black' ? 'You (Black)' : 'You (White)';
+        }
+        if (mode === 'pass_and_play') {
+            return playerColor === 'black' ? 'Player 2 (Black)' : 'Player 1 (White)';
+        }
+        if (mode === 'practice') {
+            return playerColor === 'black' ? 'Black (Sandbox)' : 'White (Sandbox)';
+        }
+        return playerColor === 'black' ? 'You (Black)' : 'You (White)';
+    };
+
+    const getModeSubtitle = () => {
+        switch (mode) {
+            case 'vs_ai':
+                return 'Solo vs Quantum AI';
+            case 'pass_and_play':
+                return 'Local 2-Player Match';
+            case 'practice':
+                return 'Solo Sandbox Board';
+            default:
+                return 'Real-time Teleport Match';
+        }
+    };
+
     return (
         <div
             style={{
@@ -60,7 +106,7 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                 seconds={playerColor === 'black' ? clocks.white : clocks.black}
                 isActive={!isGameOver && (playerColor === 'black' ? turn === 'w' : turn === 'b')}
                 playerColor={playerColor === 'black' ? 'white' : 'black'}
-                playerName={playerColor === 'black' ? 'Opponent (White)' : 'Opponent (Black)'}
+                playerName={getOpponentName()}
             />
 
             {/* Main Info Card */}
@@ -92,28 +138,51 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                         >
                             Portal Chess
                         </h2>
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>Real-time Teleport Match</span>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>{getModeSubtitle()}</span>
                     </div>
 
-                    <button
-                        onClick={toggleSound}
-                        title={soundOn ? 'Mute Sound' : 'Enable Sound'}
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '6px',
-                            color: soundOn ? '#38bdf8' : '#64748b',
-                            padding: '6px 10px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        {soundOn ? '🔊' : '🔇'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        {onFlipBoard && (
+                            <button
+                                onClick={onFlipBoard}
+                                title="Flip Board Orientation"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '6px',
+                                    color: '#cbd5e1',
+                                    padding: '6px 10px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                🔄
+                            </button>
+                        )}
+                        <button
+                            onClick={toggleSound}
+                            title={soundOn ? 'Mute Sound' : 'Enable Sound'}
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '6px',
+                                color: soundOn ? '#38bdf8' : '#64748b',
+                                padding: '6px 10px',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            {soundOn ? '🔊' : '🔇'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Status Indicator Banner */}
@@ -298,7 +367,7 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                 seconds={playerColor === 'black' ? clocks.black : clocks.white}
                 isActive={!isGameOver && (playerColor === 'black' ? turn === 'b' : turn === 'w')}
                 playerColor={playerColor === 'black' ? 'black' : 'white'}
-                playerName={playerColor === 'black' ? 'You (Black)' : 'You (White)'}
+                playerName={getPlayerName()}
             />
         </div>
     );

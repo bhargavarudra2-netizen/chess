@@ -8,6 +8,7 @@ interface LobbyProps {
     onCreateRoom: () => void;
     onJoinRoom: (code: string) => void;
     onStartPractice: () => void;
+    onOpenOfflineSetup: (subMode: 'vs_ai' | 'pass_and_play') => void;
     pendingRoomCode: string | null;
 }
 
@@ -19,6 +20,7 @@ export const Lobby: React.FC<LobbyProps> = ({
     onCreateRoom,
     onJoinRoom,
     onStartPractice,
+    onOpenOfflineSetup,
     pendingRoomCode,
 }) => {
     const [inputCode, setInputCode] = useState('');
@@ -49,7 +51,7 @@ export const Lobby: React.FC<LobbyProps> = ({
         <div
             style={{
                 width: '100%',
-                maxWidth: '960px',
+                maxWidth: '980px',
                 margin: '0 auto',
                 padding: '24px',
                 display: 'flex',
@@ -100,7 +102,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                     Portal Chess Arena
                 </h1>
                 <p style={{ margin: '0 auto', maxWidth: '540px', color: '#94a3b8', fontSize: '15px' }}>
-                    Standard chess transformed with quantum teleportation wormholes. Step through portals to ambush opponents across the board.
+                    Standard chess transformed with quantum teleportation wormholes. Play online multiplayer or offline vs our smart portal AI.
                 </p>
             </div>
 
@@ -175,66 +177,67 @@ export const Lobby: React.FC<LobbyProps> = ({
                 </div>
             )}
 
-            {/* Matchmaking Grid */}
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: '20px',
-                }}
-            >
-                {/* 1. Quick Match */}
+            {/* Offline Gaming Modes Section */}
+            <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <span style={{ fontSize: '16px' }}>📴</span>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#f8fafc' }}>
+                        Offline Modes (No Server Required)
+                    </span>
+                    <span
+                        style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            background: 'rgba(16, 185, 129, 0.2)',
+                            color: '#34d399',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                        }}
+                    >
+                        Works Offline
+                    </span>
+                </div>
+
                 <div
                     style={{
-                        padding: '24px',
-                        borderRadius: '14px',
-                        background: isSearching
-                            ? 'rgba(6, 182, 212, 0.12)'
-                            : 'rgba(30, 41, 59, 0.6)',
-                        border: isSearching
-                            ? '1px solid #06b6d4'
-                            : '1px solid rgba(255, 255, 255, 0.08)',
-                        backdropFilter: 'blur(10px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                         gap: '18px',
-                        transition: 'all 0.25s ease',
                     }}
                 >
-                    <div>
-                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚡</div>
-                        <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>Quick Match</h3>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                            Join the global queue and get instantly paired with an online opponent.
-                        </p>
-                    </div>
-
-                    {isSearching ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontWeight: 600, fontSize: '14px' }}>
-                                <div className="searching-radar-dot" />
-                                <span>Searching... {formatTime(queueDuration)}</span>
+                    {/* Offline Option 1: Play vs Computer (AI) */}
+                    <div
+                        style={{
+                            padding: '22px',
+                            borderRadius: '14px',
+                            background: 'rgba(30, 41, 59, 0.7)',
+                            border: '1px solid rgba(6, 182, 212, 0.3)',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '16px',
+                        }}
+                    >
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '28px' }}>🤖</span>
+                                <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700, background: 'rgba(6, 182, 212, 0.15)', padding: '3px 8px', borderRadius: '6px' }}>
+                                    3 Difficulty Tiers
+                                </span>
                             </div>
-                            <button
-                                onClick={onLeaveQueue}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px',
-                                    borderRadius: '8px',
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                                    color: '#f87171',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Cancel Search
-                            </button>
+                            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>
+                                Play vs Quantum AI
+                            </h3>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                                Battle our intelligent chess bot capable of calculating portal jumps, flank attacks, and defense.
+                            </p>
                         </div>
-                    ) : (
+
                         <button
-                            onClick={onJoinQueue}
+                            onClick={() => onOpenOfflineSetup('vs_ai')}
                             style={{
                                 width: '100%',
                                 padding: '12px',
@@ -245,158 +248,303 @@ export const Lobby: React.FC<LobbyProps> = ({
                                 fontWeight: 700,
                                 fontSize: '14px',
                                 cursor: 'pointer',
-                                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+                                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
                                 transition: 'all 0.2s',
                             }}
                         >
-                            Find Opponent
+                            Play vs Computer →
                         </button>
-                    )}
-                </div>
-
-                {/* 2. Create Private Room */}
-                <div
-                    style={{
-                        padding: '24px',
-                        borderRadius: '14px',
-                        background: 'rgba(30, 41, 59, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        backdropFilter: 'blur(10px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        gap: '18px',
-                    }}
-                >
-                    <div>
-                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔐</div>
-                        <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>Create Private Room</h3>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                            Generate an invite code and play directly against a friend or colleague.
-                        </p>
                     </div>
 
-                    <button
-                        onClick={onCreateRoom}
+                    {/* Offline Option 2: Local Pass & Play */}
+                    <div
                         style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            background: 'rgba(139, 92, 246, 0.2)',
-                            border: '1px solid rgba(139, 92, 246, 0.5)',
-                            color: '#c4b5fd',
-                            fontWeight: 700,
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
+                            padding: '22px',
+                            borderRadius: '14px',
+                            background: 'rgba(30, 41, 59, 0.7)',
+                            border: '1px solid rgba(168, 85, 247, 0.3)',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '16px',
                         }}
                     >
-                        Create Room Code
-                    </button>
-                </div>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '28px' }}>👥</span>
+                                <span style={{ fontSize: '11px', color: '#c084fc', fontWeight: 700, background: 'rgba(168, 85, 247, 0.15)', padding: '3px 8px', borderRadius: '6px' }}>
+                                    2 Players Local
+                                </span>
+                            </div>
+                            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>
+                                Pass & Play
+                            </h3>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                                Play face-to-face with a friend on the same screen with digital clocks and optional board auto-flip.
+                            </p>
+                        </div>
 
-                {/* 3. Join by Code */}
-                <div
-                    style={{
-                        padding: '24px',
-                        borderRadius: '14px',
-                        background: 'rgba(30, 41, 59, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        backdropFilter: 'blur(10px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        gap: '18px',
-                    }}
-                >
-                    <div>
-                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎯</div>
-                        <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>Join by Code</h3>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                            Have a room code from a friend? Enter it below to join their game.
-                        </p>
-                    </div>
-
-                    <form onSubmit={handleJoinSubmit} style={{ display: 'flex', gap: '8px' }}>
-                        <input
-                            type="text"
-                            placeholder="e.g. 7A2X9F"
-                            maxLength={8}
-                            value={inputCode}
-                            onChange={e => setInputCode(e.target.value.toUpperCase())}
-                            style={{
-                                flex: 1,
-                                padding: '10px 12px',
-                                background: 'rgba(15, 23, 42, 0.8)',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                borderRadius: '8px',
-                                color: '#f8fafc',
-                                fontFamily: 'monospace',
-                                fontSize: '14px',
-                                fontWeight: 700,
-                                textTransform: 'uppercase',
-                                outline: 'none',
-                            }}
-                        />
                         <button
-                            type="submit"
-                            disabled={!inputCode.trim()}
+                            onClick={() => onOpenOfflineSetup('pass_and_play')}
                             style={{
-                                padding: '10px 16px',
+                                width: '100%',
+                                padding: '12px',
                                 borderRadius: '8px',
-                                background: inputCode.trim() ? '#0284c7' : 'rgba(255, 255, 255, 0.05)',
-                                border: 'none',
-                                color: inputCode.trim() ? '#fff' : '#64748b',
-                                fontWeight: 600,
-                                fontSize: '13px',
-                                cursor: inputCode.trim() ? 'pointer' : 'not-allowed',
+                                background: 'rgba(168, 85, 247, 0.2)',
+                                border: '1px solid rgba(168, 85, 247, 0.5)',
+                                color: '#e9d5ff',
+                                fontWeight: 700,
+                                fontSize: '14px',
+                                cursor: 'pointer',
                                 transition: 'all 0.2s',
                             }}
                         >
-                            Join
+                            Start Pass & Play →
                         </button>
-                    </form>
+                    </div>
+
+                    {/* Offline Option 3: Sandbox */}
+                    <div
+                        style={{
+                            padding: '22px',
+                            borderRadius: '14px',
+                            background: 'rgba(30, 41, 59, 0.7)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '16px',
+                        }}
+                    >
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '28px' }}>🧪</span>
+                                <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', padding: '3px 8px', borderRadius: '6px' }}>
+                                    Sandbox
+                                </span>
+                            </div>
+                            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>
+                                Free Sandbox Board
+                            </h3>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                                Instant board exploration to test piece teleports, diagonal Bishop rules, and Royal Links.
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={onStartPractice}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                background: 'rgba(16, 185, 129, 0.18)',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                color: '#6ee7b7',
+                                fontWeight: 700,
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            Open Sandbox Board →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Online Multiplayer Section */}
+            <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <span style={{ fontSize: '16px' }}>🌐</span>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#f8fafc' }}>
+                        Online Multiplayer
+                    </span>
                 </div>
 
-                {/* 4. Local Sandbox Mode */}
                 <div
                     style={{
-                        padding: '24px',
-                        borderRadius: '14px',
-                        background: 'rgba(30, 41, 59, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        backdropFilter: 'blur(10px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                         gap: '18px',
                     }}
                 >
-                    <div>
-                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🧪</div>
-                        <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>Sandbox / Practice</h3>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                            Play locally to test portal mechanics, warp paths, and diagonal Bishop rules.
-                        </p>
-                    </div>
-
-                    <button
-                        onClick={onStartPractice}
+                    {/* 1. Quick Match */}
+                    <div
                         style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            background: 'rgba(16, 185, 129, 0.18)',
-                            border: '1px solid rgba(16, 185, 129, 0.4)',
-                            color: '#6ee7b7',
-                            fontWeight: 700,
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
+                            padding: '24px',
+                            borderRadius: '14px',
+                            background: isSearching
+                                ? 'rgba(6, 182, 212, 0.12)'
+                                : 'rgba(30, 41, 59, 0.6)',
+                            border: isSearching
+                                ? '1px solid #06b6d4'
+                                : '1px solid rgba(255, 255, 255, 0.08)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '18px',
                         }}
                     >
-                        Launch Practice Board
-                    </button>
+                        <div>
+                            <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚡</div>
+                            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>Quick Match</h3>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                                Join the global queue and get matched with an online opponent.
+                            </p>
+                        </div>
+
+                        {isSearching ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontWeight: 600, fontSize: '14px' }}>
+                                    <div className="searching-radar-dot" />
+                                    <span>Searching... {formatTime(queueDuration)}</span>
+                                </div>
+                                <button
+                                    onClick={onLeaveQueue}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                                        color: '#f87171',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Cancel Search
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={onJoinQueue}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                                    border: 'none',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                Find Online Opponent
+                            </button>
+                        )}
+                    </div>
+
+                    {/* 2. Create Private Room */}
+                    <div
+                        style={{
+                            padding: '24px',
+                            borderRadius: '14px',
+                            background: 'rgba(30, 41, 59, 0.6)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '18px',
+                        }}
+                    >
+                        <div>
+                            <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔐</div>
+                            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>Create Private Room</h3>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                                Generate an invite code to challenge a friend remotely.
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={onCreateRoom}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                background: 'rgba(139, 92, 246, 0.2)',
+                                border: '1px solid rgba(139, 92, 246, 0.5)',
+                                color: '#c4b5fd',
+                                fontWeight: 700,
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            Create Room Code
+                        </button>
+                    </div>
+
+                    {/* 3. Join by Code */}
+                    <div
+                        style={{
+                            padding: '24px',
+                            borderRadius: '14px',
+                            background: 'rgba(30, 41, 59, 0.6)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '18px',
+                        }}
+                    >
+                        <div>
+                            <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎯</div>
+                            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f8fafc' }}>Join by Code</h3>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                                Enter a 6-character room code from your friend to join.
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleJoinSubmit} style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                                type="text"
+                                placeholder="e.g. 7A2X9F"
+                                maxLength={8}
+                                value={inputCode}
+                                onChange={e => setInputCode(e.target.value.toUpperCase())}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px 12px',
+                                    background: 'rgba(15, 23, 42, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    borderRadius: '8px',
+                                    color: '#f8fafc',
+                                    fontFamily: 'monospace',
+                                    fontSize: '14px',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    outline: 'none',
+                                }}
+                            />
+                            <button
+                                type="submit"
+                                disabled={!inputCode.trim()}
+                                style={{
+                                    padding: '10px 16px',
+                                    borderRadius: '8px',
+                                    background: inputCode.trim() ? '#0284c7' : 'rgba(255, 255, 255, 0.05)',
+                                    border: 'none',
+                                    color: inputCode.trim() ? '#fff' : '#64748b',
+                                    fontWeight: 600,
+                                    fontSize: '13px',
+                                    cursor: inputCode.trim() ? 'pointer' : 'not-allowed',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                Join
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 

@@ -19,6 +19,8 @@ interface GameBoardProps {
     lastMove?: LastMoveDetails;
     onRequestRoyalLink?: (from: string, to: string, targetPortalId: string) => void;
     isPractice?: boolean;
+    isAiThinking?: boolean;
+    mode?: string;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -30,27 +32,31 @@ const GameBoard: React.FC<GameBoardProps> = ({
     lastMove,
     onRequestRoyalLink,
     isPractice,
+    isAiThinking,
+    mode,
 }) => {
     const boardRef = useRef<HTMLDivElement>(null);
     const [api, setApi] = useState<Api | null>(null);
     const chessRef = useRef<any>(null);
     const [pendingRoyalMove, setPendingRoyalMove] = useState<{ from: string; to: string } | null>(null);
 
-    const activeMovableColor = isPractice ? turn : orientation;
+    const isMultiMovable = isPractice || mode === 'pass_and_play';
+    const activeMovableColor = isMultiMovable ? turn : orientation;
 
     useEffect(() => {
         chessRef.current = new Chess(fen);
         if (api && chessRef.current) {
             api.set({
                 fen,
+                orientation,
                 turnColor: turn,
                 movable: {
-                    color: activeMovableColor,
-                    dests: getDests(chessRef.current, activeMovableColor),
+                    color: isAiThinking ? undefined : activeMovableColor,
+                    dests: isAiThinking ? new Map() : getDests(chessRef.current, activeMovableColor),
                 },
             });
         }
-    }, [fen, turn, orientation, api, activeMovableColor]);
+    }, [fen, turn, orientation, api, activeMovableColor, isAiThinking]);
 
     useEffect(() => {
         if (boardRef.current && !api) {
@@ -116,6 +122,35 @@ const GameBoard: React.FC<GameBoardProps> = ({
         >
             <div ref={boardRef} style={{ width: '100%', height: '100%' }} />
             <PortalOverlay portals={portals} orientation={orientation} lastMove={lastMove} />
+
+            {/* AI Thinking Indicator */}
+            {isAiThinking && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '16px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 40,
+                        background: 'rgba(15, 23, 42, 0.85)',
+                        backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(6, 182, 212, 0.6)',
+                        boxShadow: '0 4px 20px rgba(6, 182, 212, 0.4)',
+                        color: '#38bdf8',
+                        padding: '6px 16px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        pointerEvents: 'none',
+                    }}
+                >
+                    <span style={{ display: 'inline-block', animation: 'spin 2s linear infinite' }}>⚙️</span>
+                    <span>Quantum AI calculating...</span>
+                </div>
+            )}
 
             {/* Royal Link Activation Dialog */}
             {pendingRoyalMove && (

@@ -4,6 +4,7 @@ import GameInfo from './components/GameInfo';
 import Lobby from './components/Lobby';
 import AuthModal from './components/AuthModal';
 import GameHistoryModal from './components/GameHistoryModal';
+import { OfflineSetupModal, type OfflineMatchConfig } from './components/OfflineSetupModal';
 import { useChessGame } from './hooks/useChessGame';
 import { useAuth } from './hooks/useAuth';
 import './App.css';
@@ -22,6 +23,8 @@ function App() {
 
   const [authOpen, setAuthOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [offlineSetupOpen, setOfflineSetupOpen] = useState(false);
+  const [offlineSubMode, setOfflineSubMode] = useState<'vs_ai' | 'pass_and_play'>('vs_ai');
 
   const {
     mode,
@@ -32,11 +35,16 @@ function App() {
     isSearching,
     queueDuration,
     pendingRoomCode,
+    aiDifficulty,
+    isAiThinking,
+    passAndPlayAutoFlip,
     joinQueue,
     leaveQueue,
     createPrivateRoom,
     joinRoom,
     startPractice,
+    startVsAi,
+    startPassAndPlay,
     leaveToLobby,
     makeMove,
     requestRoyalLink,
@@ -45,8 +53,56 @@ function App() {
     error,
   } = useChessGame();
 
+  const [flipped, setFlipped] = useState(false);
+
   const handleJoinQueue = () => {
     joinQueue();
+  };
+
+  const handleStartOfflineMatch = (config: OfflineMatchConfig) => {
+    if (config.subMode === 'vs_ai') {
+      startVsAi({
+        difficulty: config.difficulty,
+        playerColor: config.playerColor,
+        timeControlSeconds: config.timeControlSeconds,
+      });
+    } else {
+      startPassAndPlay({
+        timeControlSeconds: config.timeControlSeconds,
+        autoFlip: config.autoFlip,
+      });
+    }
+  };
+
+  const getEffectiveOrientation = (): 'white' | 'black' => {
+    if (mode === 'pass_and_play' && passAndPlayAutoFlip && gameState) {
+      return gameState.turn === 'w' ? 'white' : 'black';
+    }
+    if (flipped) {
+      return playerColor === 'black' ? 'white' : 'black';
+    }
+    return playerColor === 'black' ? 'black' : 'white';
+  };
+
+  const getHeaderBadge = () => {
+    if (mode === 'practice') {
+      return <b style={{ color: '#34d399' }}>Practice Sandbox</b>;
+    }
+    if (mode === 'vs_ai') {
+      return (
+        <span>
+          🤖 Vs AI (<b style={{ color: '#06b6d4', textTransform: 'capitalize' }}>{aiDifficulty}</b>)
+        </span>
+      );
+    }
+    if (mode === 'pass_and_play') {
+      return <b style={{ color: '#a855f7' }}>Pass & Play</b>;
+    }
+    return (
+      <>
+        Room: <b style={{ color: '#38bdf8', fontFamily: 'monospace' }}>{roomId}</b>
+      </>
+    );
   };
 
   return (
@@ -72,13 +128,7 @@ function App() {
                   color: '#94a3b8',
                 }}
               >
-                {mode === 'practice' ? (
-                  <b style={{ color: '#34d399' }}>Local Practice</b>
-                ) : (
-                  <>
-                    Room: <b style={{ color: '#38bdf8', fontFamily: 'monospace' }}>{roomId}</b>
-                  </>
-                )}
+                {getHeaderBadge()}
               </span>
 
               <button
@@ -195,6 +245,10 @@ function App() {
             onCreateRoom={createPrivateRoom}
             onJoinRoom={joinRoom}
             onStartPractice={startPractice}
+            onOpenOfflineSetup={(sub) => {
+              setOfflineSubMode(sub);
+              setOfflineSetupOpen(true);
+            }}
             pendingRoomCode={pendingRoomCode}
           />
         </main>
@@ -210,13 +264,15 @@ function App() {
 
             <GameBoard
               fen={gameState.fen}
-              orientation={playerColor === 'spectator' ? 'white' : playerColor}
+              orientation={getEffectiveOrientation()}
               portals={gameState.portals}
               onMove={makeMove}
               turn={gameState.turn === 'w' ? 'white' : 'black'}
               lastMove={gameState.lastMove}
               onRequestRoyalLink={requestRoyalLink}
               isPractice={mode === 'practice'}
+              isAiThinking={isAiThinking}
+              mode={mode}
             />
           </div>
 
@@ -229,6 +285,9 @@ function App() {
             winner={gameState.winner}
             clocks={clocks}
             lastMove={gameState.lastMove}
+            mode={mode}
+            aiDifficulty={aiDifficulty}
+            onFlipBoard={() => setFlipped(f => !f)}
             onResign={resign}
             onRequestDraw={requestDraw}
           />
@@ -248,6 +307,14 @@ function App() {
           <div style={{ color: '#94a3b8', fontSize: '14px' }}>Loading game session...</div>
         </main>
       )}
+
+      {/* Offline Setup Modal */}
+      <OfflineSetupModal
+        isOpen={offlineSetupOpen}
+        initialSubMode={offlineSubMode}
+        onClose={() => setOfflineSetupOpen(false)}
+        onStartMatch={handleStartOfflineMatch}
+      />
 
       {/* Authentication Modal */}
       <AuthModal

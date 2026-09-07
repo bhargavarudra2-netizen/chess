@@ -11,6 +11,7 @@ import {
     playRoyalLinkSound,
 } from '../utils/soundEffects';
 import { resolvePortalDestination } from '../utils/portalRules';
+import { findBestMove, type AiDifficulty } from '../utils/portalAi';
 
 interface MoveResponsePayload {
     ok?: boolean;
@@ -32,7 +33,7 @@ const checkCheckmate = (c: any): boolean =>
 const checkDraw = (c: any): boolean =>
     typeof c.isDraw === 'function' ? c.isDraw() : (typeof c.in_draw === 'function' ? c.in_draw() : false);
 
-// Generate default initial portals for local practice mode
+// Generate default initial portals for offline modes
 const generatePracticePortals = (): Portal[] => {
     return [
         { id: 'p0_a', r: 3, c: 3, linkedTo: 'p0_b', color: '#06b6d4' }, // d5
@@ -43,15 +44,21 @@ const generatePracticePortals = (): Portal[] => {
 };
 
 export const useChessGame = () => {
-    const [mode, setMode] = useState<'lobby' | 'game' | 'practice'>('lobby');
+    const [mode, setMode] = useState<'lobby' | 'game' | 'practice' | 'vs_ai' | 'pass_and_play'>('lobby');
     const [roomId, setRoomId] = useState<string | null>(null);
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [playerColor, setPlayerColor] = useState<'white' | 'black' | 'spectator'>('white');
     const [clocks, setClocks] = useState<{ white: number; black: number }>({ white: 600, black: 600 });
+    const [timerConfigSeconds, setTimerConfigSeconds] = useState<number>(600);
     const [error, setError] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
     const [queueDuration, setQueueDuration] = useState(0);
     const [pendingRoomCode, setPendingRoomCode] = useState<string | null>(null);
+
+    // Offline AI & Pass & Play states
+    const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('adept');
+    const [isAiThinking, setIsAiThinking] = useState(false);
+    const [passAndPlayAutoFlip, setPassAndPlayAutoFlip] = useState(false);
 
     const socketRef = useRef<Socket | null>(null);
     const practiceChessRef = useRef<any>(null);
@@ -200,9 +207,9 @@ export const useChessGame = () => {
         return () => clearInterval(interval);
     }, [isSearching]);
 
-    // Active in-game clocks ticking
+    // Active in-game clocks ticking (only when timeControl > 0)
     useEffect(() => {
-        if (!gameState || gameState.isGameOver || gameState.history.length === 0) return;
+        if (!gameState || gameState.isGameOver || gameState.history.length === 0 || timerConfigSeconds === 0) return;
 
         const interval = setInterval(() => {
             setClocks(prev => {
@@ -220,7 +227,95 @@ export const useChessGame = () => {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [gameState?.turn, gameState?.isGameOver, gameState?.history.length]);
+    }, [gameState?.turn, gameState?.isGameOver, gameState?.history.length, timerConfigSeconds]);
+
+    // --- Offline Move Execution & AI Engine Trigger ---
+
+    const executeOfflineMove = useCallback((
+        from: string,
+        to: string,
+        currentMode: 'practice' | 'vs_ai' | 'pass_and_play',
+        isAiMover = false
+    ) => {
+        const chess = practiceChessRef.current || new Chess(gameState?.fen);
+        if (!chess) return false;
+
+        const moveRes = chess.move({ from, to, promotion: 'q' });
+        if (!moveRes) {
+            setError('Illegal move');
+            return false;
+        }
+
+        // Check portal teleport
+        const file = to.charCodeAt(0) - 97;
+        const rank = 8 - parseInt(to[1], 10);
+        const teleportDest = resolvePortalDestination(
+            gameState?.portals || [],
+            { r: 8 - parseInt(from[1], 10), c: from.charCodeAt(0) - 97 },
+            { r: rank, c: file },
+            moveRes.piece,
+            moveRes.color,
+            chess
+        );
+
+        let teleported = false;
+        let finalFen = chess.fen();
+        if (teleportDest) {
+            teleported = true;
+            const destSq = `${String.fromCharCode(teleportDest.c + 97)}${8 - teleportDest.r}`;
+            const piece = chess.remove(to as any);
+            if (piece) {
+                chess.put(piece, destSq as any);
+            }
+            finalFen = chess.fen();
+        }
+
+        triggerMoveAudio(teleported, moveRes.san);
+        setError(null);
+
+        const isOver = checkGameOver(chess);
+        const winResult = isOver
+            ? (checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null))
+            : null;
+
+        if (isOver) {
+            playGameOverSound();
+        }
+
+        const nextTurn = chess.turn();
+
+        setGameState(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                fen: finalFen,
+                turn: nextTurn,
+                history: [...prev.history, moveRes.san],
+                isGameOver: isOver,
+                winner: winResult,
+                lastMove: {
+                    from,
+                    to,
+                    san: moveRes.san,
+                    teleported,
+                    finalDest: teleportDest || undefined,
+                },
+            };
+        });
+
+        // Trigger AI counter-move if playing vs computer and player just made a move
+        if (currentMode === 'vs_ai' && !isAiMover && !isOver) {
+            setIsAiThinking(true);
+            findBestMove(chess, gameState?.portals || [], aiDifficulty).then(aiMove => {
+                setIsAiThinking(false);
+                if (aiMove) {
+                    executeOfflineMove(aiMove.from, aiMove.to, 'vs_ai', true);
+                }
+            });
+        }
+
+        return true;
+    }, [gameState?.fen, gameState?.portals, triggerMoveAudio, aiDifficulty]);
 
     // --- Actions ---
 
@@ -251,12 +346,14 @@ export const useChessGame = () => {
     const startPractice = useCallback(() => {
         setError(null);
         const portals = generatePracticePortals();
-        practiceChessRef.current = new Chess();
+        const chess = new Chess();
+        practiceChessRef.current = chess;
         setRoomId('local-sandbox');
         setPlayerColor('white');
+        setTimerConfigSeconds(0); // unlimited
         setClocks({ white: 600, black: 600 });
         setGameState({
-            fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            fen: chess.fen(),
             turn: 'w',
             portals,
             history: [],
@@ -266,6 +363,68 @@ export const useChessGame = () => {
         setMode('practice');
     }, []);
 
+    const startVsAi = useCallback((config: {
+        difficulty: AiDifficulty;
+        playerColor: 'white' | 'black';
+        timeControlSeconds: number;
+    }) => {
+        setError(null);
+        const portals = generatePracticePortals();
+        const chess = new Chess();
+        practiceChessRef.current = chess;
+        setRoomId('offline-vs-ai');
+        setPlayerColor(config.playerColor);
+        setAiDifficulty(config.difficulty);
+        setTimerConfigSeconds(config.timeControlSeconds);
+        const initSecs = config.timeControlSeconds || 600;
+        setClocks({ white: initSecs, black: initSecs });
+        setGameState({
+            fen: chess.fen(),
+            turn: 'w',
+            portals,
+            history: [],
+            isGameOver: false,
+            winner: null,
+        });
+        setMode('vs_ai');
+
+        // If player picked Black, AI takes the opening White move!
+        if (config.playerColor === 'black') {
+            setIsAiThinking(true);
+            findBestMove(chess, portals, config.difficulty).then(aiMove => {
+                setIsAiThinking(false);
+                if (aiMove) {
+                    executeOfflineMove(aiMove.from, aiMove.to, 'vs_ai', true);
+                }
+            });
+        }
+    }, [executeOfflineMove]);
+
+    const startPassAndPlay = useCallback((config: {
+        timeControlSeconds: number;
+        autoFlip: boolean;
+    }) => {
+        setError(null);
+        const portals = generatePracticePortals();
+        const chess = new Chess();
+        practiceChessRef.current = chess;
+        setRoomId('offline-pass-and-play');
+        setPlayerColor('white');
+        setPassAndPlayAutoFlip(config.autoFlip);
+        setTimerConfigSeconds(config.timeControlSeconds);
+        const initSecs = config.timeControlSeconds || 600;
+        setClocks({ white: initSecs, black: initSecs });
+        setGameState({
+            fen: chess.fen(),
+            turn: 'w',
+            portals,
+            history: [],
+            isGameOver: false,
+            winner: null,
+        });
+        setMode('pass_and_play');
+    }, []);
+
     const leaveToLobby = useCallback(() => {
         if (isSearching) leaveQueue();
         setMode('lobby');
@@ -273,94 +432,22 @@ export const useChessGame = () => {
         setRoomId(null);
         setPendingRoomCode(null);
         setError(null);
+        setIsAiThinking(false);
     }, [isSearching, leaveQueue]);
 
     const makeMove = useCallback((from: string, to: string) => {
-        if (mode === 'practice') {
-            // Handle local move in sandbox mode
-            const chess = practiceChessRef.current || new Chess(gameState?.fen);
-            if (!chess) return;
-
-            const moveRes = chess.move({ from, to, promotion: 'q' });
-            if (!moveRes) {
-                setError('Illegal move');
-                return;
-            }
-
-            // Check portal teleport
-            const file = to.charCodeAt(0) - 97;
-            const rank = 8 - parseInt(to[1], 10);
-            const teleportDest = resolvePortalDestination(
-                gameState?.portals || [],
-                { r: 8 - parseInt(from[1], 10), c: from.charCodeAt(0) - 97 },
-                { r: rank, c: file },
-                moveRes.piece,
-                moveRes.color,
-                chess
-            );
-
-            let teleported = false;
-            let finalFen = chess.fen();
-            if (teleportDest) {
-                teleported = true;
-                const destSq = `${String.fromCharCode(teleportDest.c + 97)}${8 - teleportDest.r}`;
-                // Move piece on internal board
-                const piece = chess.remove(to);
-                chess.put(piece, destSq);
-                finalFen = chess.fen();
-            }
-
-            triggerMoveAudio(teleported, moveRes.san);
-            setError(null);
-
-            setGameState(prev => {
-                if (!prev) return null;
-                return {
-                    ...prev,
-                    fen: finalFen,
-                    turn: chess.turn(),
-                    history: [...prev.history, moveRes.san],
-                    isGameOver: checkGameOver(chess),
-                    winner: checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null),
-                    lastMove: {
-                        from,
-                        to,
-                        san: moveRes.san,
-                        teleported,
-                        finalDest: teleportDest || undefined,
-                    },
-                };
-            });
+        if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
+            executeOfflineMove(from, to, mode);
             return;
         }
 
         // Online mode: send to server
         if (!socketRef.current || !roomId) return;
         socketRef.current.emit('make_move', { gameId: roomId, from, to });
-    }, [mode, roomId, gameState?.fen, gameState?.portals, triggerMoveAudio]);
-
-    const resign = useCallback(() => {
-        if (mode === 'practice') {
-            setGameState(prev => prev ? { ...prev, isGameOver: true, winner: 'black' } : null);
-            playGameOverSound();
-            return;
-        }
-        if (!socketRef.current || !roomId) return;
-        socketRef.current.emit('resign', { gameId: roomId });
-    }, [mode, roomId]);
-
-    const requestDraw = useCallback(() => {
-        if (mode === 'practice') {
-            setGameState(prev => prev ? { ...prev, isGameOver: true, winner: 'draw' } : null);
-            playGameOverSound();
-            return;
-        }
-        if (!socketRef.current || !roomId) return;
-        socketRef.current.emit('offer_draw', { gameId: roomId });
-    }, [mode, roomId]);
+    }, [mode, roomId, executeOfflineMove]);
 
     const requestRoyalLink = useCallback((from: string, to: string, linkPortalId: string) => {
-        if (mode === 'practice') {
+        if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
             const chess = practiceChessRef.current || new Chess(gameState?.fen);
             if (!chess) return;
 
@@ -393,6 +480,11 @@ export const useChessGame = () => {
             playRoyalLinkSound();
             setError(null);
 
+            const isOver = checkGameOver(chess);
+            const winResult = isOver
+                ? (checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null))
+                : null;
+
             setGameState(prev => {
                 if (!prev) return null;
                 return {
@@ -401,8 +493,8 @@ export const useChessGame = () => {
                     turn: chess.turn(),
                     portals: updatedPortals,
                     history: [...prev.history, `${moveRes.san} (👑)`],
-                    isGameOver: checkGameOver(chess),
-                    winner: checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null),
+                    isGameOver: isOver,
+                    winner: winResult,
                     lastMove: {
                         from,
                         to,
@@ -411,6 +503,17 @@ export const useChessGame = () => {
                     },
                 };
             });
+
+            // If vs AI, trigger AI move after royal link
+            if (mode === 'vs_ai' && !isOver) {
+                setIsAiThinking(true);
+                findBestMove(chess, updatedPortals, aiDifficulty).then(aiMove => {
+                    setIsAiThinking(false);
+                    if (aiMove) {
+                        executeOfflineMove(aiMove.from, aiMove.to, 'vs_ai', true);
+                    }
+                });
+            }
             return;
         }
 
@@ -422,7 +525,28 @@ export const useChessGame = () => {
             to,
             linkPortalId,
         });
-    }, [mode, roomId, gameState?.fen, gameState?.portals]);
+    }, [mode, roomId, gameState?.fen, gameState?.portals, aiDifficulty, executeOfflineMove]);
+
+    const resign = useCallback(() => {
+        if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
+            const oppWinner = playerColor === 'white' ? 'black' : 'white';
+            setGameState(prev => prev ? { ...prev, isGameOver: true, winner: oppWinner } : null);
+            playGameOverSound();
+            return;
+        }
+        if (!socketRef.current || !roomId) return;
+        socketRef.current.emit('resign', { gameId: roomId });
+    }, [mode, roomId, playerColor]);
+
+    const requestDraw = useCallback(() => {
+        if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
+            setGameState(prev => prev ? { ...prev, isGameOver: true, winner: 'draw' } : null);
+            playGameOverSound();
+            return;
+        }
+        if (!socketRef.current || !roomId) return;
+        socketRef.current.emit('offer_draw', { gameId: roomId });
+    }, [mode, roomId]);
 
     return {
         mode,
@@ -430,14 +554,20 @@ export const useChessGame = () => {
         gameState,
         playerColor,
         clocks,
+        timerConfigSeconds,
         isSearching,
         queueDuration,
         pendingRoomCode,
+        aiDifficulty,
+        isAiThinking,
+        passAndPlayAutoFlip,
         joinQueue,
         leaveQueue,
         createPrivateRoom,
         joinRoom,
         startPractice,
+        startVsAi,
+        startPassAndPlay,
         leaveToLobby,
         makeMove,
         requestRoyalLink,
