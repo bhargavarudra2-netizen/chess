@@ -5,9 +5,8 @@ import type { Config } from 'chessground/config';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.brown.css';
 import 'chessground/assets/chessground.cburnett.css';
-import type { Portal } from '../types';
+import type { Portal, LastMoveDetails } from '../types';
 import PortalOverlay from './PortalOverlay';
-// import { Chess } from 'chess.js';
 
 interface GameBoardProps {
     fen: string;
@@ -15,9 +14,17 @@ interface GameBoardProps {
     portals: Portal[];
     onMove: (from: string, to: string) => void;
     turn: 'white' | 'black';
+    lastMove?: LastMoveDetails;
 }
 
-const GameBoard: React.FC<GameBoardProps> = ({ fen, orientation, portals, onMove, turn }) => {
+const GameBoard: React.FC<GameBoardProps> = ({
+    fen,
+    orientation,
+    portals,
+    onMove,
+    turn,
+    lastMove,
+}) => {
     const boardRef = useRef<HTMLDivElement>(null);
     const [api, setApi] = useState<Api | null>(null);
     const chessRef = useRef<any>(null);
@@ -65,7 +72,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ fen, orientation, portals, onMove
             const newApi = Chessground(boardRef.current, config);
             setApi(newApi);
         }
-    }, [boardRef]);
+    }, [boardRef, fen, orientation, onMove, api]);
 
     // Helper to get valid destinations from chess.js
     const getDests = (chess: any, color: 'white' | 'black') => {
@@ -80,9 +87,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ fen, orientation, portals, onMove
     };
 
     return (
-        <div style={{ position: 'relative', width: '600px', height: '600px' }}>
+        <div
+            className="game-board-container"
+            style={{
+                position: 'relative',
+                width: '600px',
+                height: '600px',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.1)',
+            }}
+        >
             <div ref={boardRef} style={{ width: '100%', height: '100%' }} />
-            <PortalOverlay portals={portals} orientation={orientation} />
+            <PortalOverlay portals={portals} orientation={orientation} lastMove={lastMove} />
         </div>
     );
 };

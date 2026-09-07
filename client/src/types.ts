@@ -6,12 +6,21 @@ export interface Portal {
     color?: string;
 }
 
+export interface LastMoveDetails {
+    from: string;
+    to: string;
+    san?: string;
+    teleported?: boolean;
+    finalDest?: { r: number; c: number };
+}
+
 export interface GameState {
     fen: string;
     turn: 'w' | 'b';
     portals: Portal[];
-    history: any[];
+    history: string[];
     isGameOver: boolean;
     winner: 'white' | 'black' | 'draw' | null;
-    lastMove?: any;
+    lastMove?: LastMoveDetails;
+    clocks?: { white: number; black: number };
 }
