@@ -17,7 +17,6 @@ const PAIR_COLORS = [
 ];
 
 export const PortalOverlay: React.FC<PortalOverlayProps> = ({ portals, orientation, lastMove }) => {
-    const [hoveredPortalId, setHoveredPortalId] = useState<string | null>(null);
     const [activeWarp, setActiveWarp] = useState<{
         entrance: { x: number; y: number };
         exit: { x: number; y: number };
@@ -72,18 +71,30 @@ export const PortalOverlay: React.FC<PortalOverlayProps> = ({ portals, orientati
         }
     }, [lastMove]);
 
+    // Get unique pairs for persistent energetic connection beams
+    const uniquePairs = React.useMemo(() => {
+        const pairs: Array<{ p1: Portal; p2: Portal; theme: typeof PAIR_COLORS[0] }> = [];
+        const seen = new Set<string>();
+
+        portals.forEach(p1 => {
+            if (p1.linkedTo && !seen.has(p1.id)) {
+                const p2 = portals.find(p => p.id === p1.linkedTo);
+                if (p2) {
+                    seen.add(p1.id);
+                    seen.add(p2.id);
+                    const theme = portalColorMap.get(p1.id) || PAIR_COLORS[0];
+                    pairs.push({ p1, p2, theme });
+                }
+            }
+        });
+        return pairs;
+    }, [portals, portalColorMap]);
+
     if (!portals || portals.length === 0) return null;
 
-    const hoveredPortal = portals.find(p => p.id === hoveredPortalId);
-    const linkedPortal = hoveredPortal ? portals.find(p => p.id === hoveredPortal.linkedTo) : null;
-
-    let beamLine = null;
-    if (hoveredPortal && linkedPortal) {
-        const from = getSquareCenter(hoveredPortal.r, hoveredPortal.c);
-        const to = getSquareCenter(linkedPortal.r, linkedPortal.c);
-        const portalTheme = portalColorMap.get(hoveredPortal.id) || PAIR_COLORS[0];
-
-        beamLine = (
+    return (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
+            {/* Ambient Connection Beams Between Linked Portals */}
             <svg
                 style={{
                     position: 'absolute',
@@ -92,15 +103,10 @@ export const PortalOverlay: React.FC<PortalOverlayProps> = ({ portals, orientati
                     width: '100%',
                     height: '100%',
                     pointerEvents: 'none',
-                    zIndex: 15,
+                    zIndex: 6,
                 }}
             >
                 <defs>
-                    <linearGradient id="portalBeamGrad" x1={`${from.x}%`} y1={`${from.y}%`} x2={`${to.x}%`} y2={`${to.y}%`}>
-                        <stop offset="0%" stopColor={portalTheme.primary} stopOpacity="0.9" />
-                        <stop offset="50%" stopColor={portalTheme.core} stopOpacity="1" />
-                        <stop offset="100%" stopColor={portalTheme.primary} stopOpacity="0.9" />
-                    </linearGradient>
                     <filter id="beamGlow">
                         <feGaussianBlur stdDeviation="3" result="coloredBlur" />
                         <feMerge>
@@ -108,82 +114,100 @@ export const PortalOverlay: React.FC<PortalOverlayProps> = ({ portals, orientati
                             <feMergeNode in="SourceGraphic" />
                         </feMerge>
                     </filter>
+                    {uniquePairs.map(({ p1, theme }) => {
+                        const from = getSquareCenter(p1.r, p1.c);
+                        const p2 = portals.find(p => p.id === p1.linkedTo)!;
+                        const to = getSquareCenter(p2.r, p2.c);
+                        return (
+                            <linearGradient
+                                key={`grad_${p1.id}`}
+                                id={`grad_${p1.id}`}
+                                x1={`${from.x}%`}
+                                y1={`${from.y}%`}
+                                x2={`${to.x}%`}
+                                y2={`${to.y}%`}
+                            >
+                                <stop offset="0%" stopColor={theme.primary} stopOpacity="0.8" />
+                                <stop offset="50%" stopColor={theme.core} stopOpacity="1" />
+                                <stop offset="100%" stopColor={theme.primary} stopOpacity="0.8" />
+                            </linearGradient>
+                        );
+                    })}
                 </defs>
-                {/* Glow underlay */}
-                <line
-                    x1={`${from.x}%`}
-                    y1={`${from.y}%`}
-                    x2={`${to.x}%`}
-                    y2={`${to.y}%`}
-                    stroke={portalTheme.primary}
-                    strokeWidth="8"
-                    strokeOpacity="0.4"
-                    filter="url(#beamGlow)"
-                />
-                {/* Dashed energetic line */}
-                <line
-                    x1={`${from.x}%`}
-                    y1={`${from.y}%`}
-                    x2={`${to.x}%`}
-                    y2={`${to.y}%`}
-                    stroke="url(#portalBeamGrad)"
-                    strokeWidth="3"
-                    strokeDasharray="6 4"
-                    strokeLinecap="round"
-                    className="portal-beam-animated"
-                />
+
+                {uniquePairs.map(({ p1, p2, theme }) => {
+                    const from = getSquareCenter(p1.r, p1.c);
+                    const to = getSquareCenter(p2.r, p2.c);
+                    return (
+                        <g key={`pair_${p1.id}_${p2.id}`}>
+                            {/* Subtle Glow Underlay */}
+                            <line
+                                x1={`${from.x}%`}
+                                y1={`${from.y}%`}
+                                x2={`${to.x}%`}
+                                y2={`${to.y}%`}
+                                stroke={theme.primary}
+                                strokeWidth="5"
+                                strokeOpacity="0.25"
+                                filter="url(#beamGlow)"
+                            />
+                            {/* Animated Dashed Energy Line */}
+                            <line
+                                x1={`${from.x}%`}
+                                y1={`${from.y}%`}
+                                x2={`${to.x}%`}
+                                y2={`${to.y}%`}
+                                stroke={`url(#grad_${p1.id})`}
+                                strokeWidth="2"
+                                strokeDasharray="6 6"
+                                strokeLinecap="round"
+                                className="portal-beam-animated"
+                                strokeOpacity="0.75"
+                            />
+                        </g>
+                    );
+                })}
             </svg>
-        );
-    }
 
-    return (
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            {beamLine}
-
+            {/* Portal Vortices (pointer-events: none ensures pieces underneath can be clicked/dragged) */}
             {portals.map(p => {
                 const top = isWhite ? p.r * 12.5 : (7 - p.r) * 12.5;
                 const left = isWhite ? p.c * 12.5 : (7 - p.c) * 12.5;
                 const theme = portalColorMap.get(p.id) || PAIR_COLORS[0];
-                const isHovered = hoveredPortalId === p.id || linkedPortal?.id === p.id;
 
                 return (
                     <div
                         key={p.id}
-                        onMouseEnter={() => setHoveredPortalId(p.id)}
-                        onMouseLeave={() => setHoveredPortalId(null)}
                         style={{
                             top: `${top}%`,
                             left: `${left}%`,
                             width: '12.5%',
                             height: '12.5%',
                             position: 'absolute',
-                            pointerEvents: 'auto',
+                            pointerEvents: 'none',
                             display: 'flex',
                             justifyContent: 'center',
                             alignItems: 'center',
-                            cursor: 'pointer',
-                            zIndex: 10,
+                            zIndex: 7,
                         }}
                     >
                         {/* Outer animated vortex */}
                         <div
                             className="portal-vortex"
                             style={{
-                                width: isHovered ? '86%' : '78%',
-                                height: isHovered ? '86%' : '78%',
+                                width: '80%',
+                                height: '80%',
                                 borderRadius: '50%',
                                 border: `2.5px solid ${theme.primary}`,
-                                boxShadow: isHovered
-                                    ? `0 0 20px ${theme.primary}, inset 0 0 15px ${theme.primary}`
-                                    : `0 0 10px ${theme.glow}, inset 0 0 8px ${theme.glow}`,
+                                boxShadow: `0 0 14px ${theme.glow}, inset 0 0 10px ${theme.glow}`,
                                 display: 'flex',
                                 justifyContent: 'center',
                                 alignItems: 'center',
-                                transition: 'all 0.25s ease',
-                                background: 'radial-gradient(circle, rgba(0,0,0,0.2) 20%, transparent 80%)',
+                                background: 'radial-gradient(circle, rgba(0,0,0,0.15) 20%, transparent 80%)',
+                                pointerEvents: 'none',
                             }}
                         >
-                            {/* Inner spinning energetic ring */}
+                            {/* Inner spinning ring */}
                             <div
                                 className="portal-inner-spin"
                                 style={{
@@ -191,13 +215,14 @@ export const PortalOverlay: React.FC<PortalOverlayProps> = ({ portals, orientati
                                     height: '60%',
                                     borderRadius: '50%',
                                     border: `1.5px dashed ${theme.core}`,
-                                    opacity: isHovered ? 1 : 0.8,
+                                    opacity: 0.9,
                                     display: 'flex',
                                     justifyContent: 'center',
                                     alignItems: 'center',
+                                    pointerEvents: 'none',
                                 }}
                             >
-                                {/* Core singularity node */}
+                                {/* Core singularity */}
                                 <div
                                     style={{
                                         width: '6px',
@@ -205,6 +230,7 @@ export const PortalOverlay: React.FC<PortalOverlayProps> = ({ portals, orientati
                                         borderRadius: '50%',
                                         background: theme.core,
                                         boxShadow: `0 0 8px ${theme.core}`,
+                                        pointerEvents: 'none',
                                     }}
                                 />
                             </div>

@@ -59,6 +59,7 @@ export const useChessGame = () => {
     const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('adept');
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [passAndPlayAutoFlip, setPassAndPlayAutoFlip] = useState(false);
+    const [royalLinkUsed, setRoyalLinkUsed] = useState<{ white: boolean; black: boolean }>({ white: false, black: false });
 
     const socketRef = useRef<Socket | null>(null);
     const practiceChessRef = useRef<any>(null);
@@ -131,6 +132,7 @@ export const useChessGame = () => {
             setRoomId(data.gameId);
             setPlayerColor(data.color);
             setGameState(data.initialState);
+            setRoyalLinkUsed(data.initialState.royalLinkUsed || { white: false, black: false });
             setMode('game');
             if (data.initialState.clocks) {
                 setClocks(data.initialState.clocks);
@@ -142,6 +144,7 @@ export const useChessGame = () => {
             setRoomId(data.gameId);
             setPlayerColor('white');
             setGameState(data.initialState);
+            setRoyalLinkUsed(data.initialState.royalLinkUsed || { white: false, black: false });
             if (data.initialState.clocks) {
                 setClocks(data.initialState.clocks);
             }
@@ -159,6 +162,7 @@ export const useChessGame = () => {
             setRoomId(data.gameId);
             setPlayerColor(data.color);
             setGameState(data.initialState);
+            setRoyalLinkUsed(data.initialState.royalLinkUsed || { white: false, black: false });
             setMode('game');
             if (data.initialState.clocks) {
                 setClocks(data.initialState.clocks);
@@ -350,6 +354,7 @@ export const useChessGame = () => {
         practiceChessRef.current = chess;
         setRoomId('local-sandbox');
         setPlayerColor('white');
+        setRoyalLinkUsed({ white: false, black: false });
         setTimerConfigSeconds(0); // unlimited
         setClocks({ white: 600, black: 600 });
         setGameState({
@@ -374,6 +379,7 @@ export const useChessGame = () => {
         practiceChessRef.current = chess;
         setRoomId('offline-vs-ai');
         setPlayerColor(config.playerColor);
+        setRoyalLinkUsed({ white: false, black: false });
         setAiDifficulty(config.difficulty);
         setTimerConfigSeconds(config.timeControlSeconds);
         const initSecs = config.timeControlSeconds || 600;
@@ -410,6 +416,7 @@ export const useChessGame = () => {
         practiceChessRef.current = chess;
         setRoomId('offline-pass-and-play');
         setPlayerColor('white');
+        setRoyalLinkUsed({ white: false, black: false });
         setPassAndPlayAutoFlip(config.autoFlip);
         setTimerConfigSeconds(config.timeControlSeconds);
         const initSecs = config.timeControlSeconds || 600;
@@ -485,6 +492,9 @@ export const useChessGame = () => {
                 ? (checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null))
                 : null;
 
+            const moverColor = moveRes.color === 'w' ? 'white' : 'black';
+            setRoyalLinkUsed(prev => ({ ...prev, [moverColor]: true }));
+
             setGameState(prev => {
                 if (!prev) return null;
                 return {
@@ -518,6 +528,7 @@ export const useChessGame = () => {
         }
 
         if (!socketRef.current || !roomId) return;
+        setRoyalLinkUsed(prev => ({ ...prev, [playerColor === 'black' ? 'black' : 'white']: true }));
         playRoyalLinkSound();
         socketRef.current.emit('request_royal_link', {
             gameId: roomId,
@@ -525,7 +536,12 @@ export const useChessGame = () => {
             to,
             linkPortalId,
         });
-    }, [mode, roomId, gameState?.fen, gameState?.portals, aiDifficulty, executeOfflineMove]);
+    }, [mode, roomId, gameState?.fen, gameState?.portals, aiDifficulty, executeOfflineMove, playerColor]);
+
+    const declineRoyalLink = useCallback((color?: 'white' | 'black') => {
+        const targetColor = color || (playerColor === 'black' ? 'black' : 'white');
+        setRoyalLinkUsed(prev => ({ ...prev, [targetColor]: true }));
+    }, [playerColor]);
 
     const resign = useCallback(() => {
         if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
@@ -561,6 +577,7 @@ export const useChessGame = () => {
         aiDifficulty,
         isAiThinking,
         passAndPlayAutoFlip,
+        royalLinkUsed,
         joinQueue,
         leaveQueue,
         createPrivateRoom,
@@ -571,6 +588,7 @@ export const useChessGame = () => {
         leaveToLobby,
         makeMove,
         requestRoyalLink,
+        declineRoyalLink,
         resign,
         requestDraw,
         error,

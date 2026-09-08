@@ -15,10 +15,19 @@ interface GameInfoProps {
     lastMove?: LastMoveDetails;
     mode?: string;
     aiDifficulty?: string;
+    royalLinkUsed?: { white: boolean; black: boolean };
     onResign?: () => void;
     onRequestDraw?: () => void;
     onFlipBoard?: () => void;
 }
+
+// Safely format any move item (whether string or verbose chess.js object)
+const formatMove = (m: any): string => {
+    if (!m) return '';
+    if (typeof m === 'string') return m;
+    if (typeof m === 'object' && m.san) return m.san;
+    return String(m);
+};
 
 export const GameInfo: React.FC<GameInfoProps> = ({
     fen,
@@ -31,6 +40,7 @@ export const GameInfo: React.FC<GameInfoProps> = ({
     lastMove,
     mode = 'game',
     aiDifficulty,
+    royalLinkUsed,
     onResign,
     onRequestDraw,
     onFlipBoard,
@@ -49,8 +59,11 @@ export const GameInfo: React.FC<GameInfoProps> = ({
         setSoundEnabled(next);
     };
 
-    const isCheck = history.length > 0 && history[history.length - 1]?.includes('+');
+    const lastMoveStr = history.length > 0 ? formatMove(history[history.length - 1]) : '';
+    const isCheck = lastMoveStr.includes('+');
     const isCheckmate = isGameOver && winner && winner !== 'draw';
+
+    const isMyRoyalLinkUsed = royalLinkUsed ? royalLinkUsed[playerColor === 'black' ? 'black' : 'white'] : false;
 
     const getOpponentName = () => {
         if (mode === 'vs_ai') {
@@ -206,24 +219,46 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                 )}
 
                 {/* Royal Link Status Banner */}
-                {!isGameOver && Math.floor(history.length / 2) < 15 && (
-                    <div
-                        style={{
-                            padding: '6px 10px',
-                            borderRadius: '6px',
-                            background: 'rgba(255, 215, 0, 0.1)',
-                            border: '1px solid rgba(255, 215, 0, 0.3)',
-                            color: '#fef08a',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                        }}
-                    >
-                        <span>👑 Royal Link Active</span>
-                        <span style={{ fontSize: '10px', color: '#ffd700' }}>Move King before turn 15</span>
-                    </div>
+                {!isGameOver && (
+                    isMyRoyalLinkUsed ? (
+                        <div
+                            style={{
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                background: 'rgba(255, 255, 255, 0.04)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                color: '#94a3b8',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <span>👑 Royal Link</span>
+                            <span style={{ fontSize: '10px', color: '#64748b' }}>Used / Inactive</span>
+                        </div>
+                    ) : (
+                        Math.floor(history.length / 2) < 15 && (
+                            <div
+                                style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    background: 'rgba(255, 215, 0, 0.1)',
+                                    border: '1px solid rgba(255, 215, 0, 0.3)',
+                                    color: '#fef08a',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                <span>👑 Royal Link Ready</span>
+                                <span style={{ fontSize: '10px', color: '#ffd700' }}>Move King before turn 15</span>
+                            </div>
+                        )
+                    )
                 )}
 
                 {lastMove?.teleported && (
@@ -283,8 +318,8 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                                 {history.map((move, i) => {
                                     if (i % 2 === 0) {
                                         const moveNum = Math.floor(i / 2) + 1;
-                                        const whiteMove = move;
-                                        const blackMove = history[i + 1];
+                                        const whiteMove = formatMove(move);
+                                        const blackMove = formatMove(history[i + 1]);
                                         return (
                                             <React.Fragment key={i}>
                                                 <span style={{ color: '#64748b', fontWeight: 500 }}>{moveNum}.</span>

@@ -34,6 +34,6 @@ export class Move {
     @CreateDateColumn()
     timestamp: Date;
 
-    @Column({ type: 'jsonb', nullable: true })
+    @Column({ type: 'simple-json', nullable: true })
     meta: any; // { portalUsed: boolean, portalId: string, royalLinkUsed: boolean }
 }

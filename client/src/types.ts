@@ -23,4 +23,5 @@ export interface GameState {
     winner: 'white' | 'black' | 'draw' | null;
     lastMove?: LastMoveDetails;
     clocks?: { white: number; black: number };
+    royalLinkUsed?: { white: boolean; black: boolean };
 }

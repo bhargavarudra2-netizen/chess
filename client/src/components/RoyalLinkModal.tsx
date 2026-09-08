@@ -6,7 +6,7 @@ interface RoyalLinkModalProps {
     toSquare: string;
     portals: Portal[];
     onConfirm: (targetPortalId: string) => void;
-    onSkip: () => void;
+    onSkip: (dontAskAgain?: boolean) => void;
 }
 
 const squareFromCoords = (r: number, c: number): string => {
@@ -75,7 +75,7 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                     <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
                         Your King moved from <b style={{ color: '#ffd700' }}>{fromSquare}</b> to{' '}
                         <b style={{ color: '#ffd700' }}>{toSquare}</b>. You can create a permanent golden portal on{' '}
-                        <b style={{ color: '#ffd700' }}>{fromSquare}</b> linked to an existing portal!
+                        <b style={{ color: '#ffd700' }}>{fromSquare}</b> linked to an existing portal! (One-time move)
                     </p>
                 </div>
 
@@ -128,7 +128,7 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                     <button
-                        onClick={onSkip}
+                        onClick={() => onSkip(false)}
                         style={{
                             flex: 1,
                             padding: '11px',
@@ -141,7 +141,23 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                             cursor: 'pointer',
                         }}
                     >
-                        Skip (Normal Move)
+                        Skip This Turn
+                    </button>
+                    <button
+                        onClick={() => onSkip(true)}
+                        style={{
+                            flex: 1,
+                            padding: '11px',
+                            borderRadius: '8px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            color: '#fca5a5',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Decline (Don't Ask Again)
                     </button>
                 </div>
             </div>

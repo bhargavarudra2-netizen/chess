@@ -5,6 +5,7 @@ import Lobby from './components/Lobby';
 import AuthModal from './components/AuthModal';
 import GameHistoryModal from './components/GameHistoryModal';
 import { OfflineSetupModal, type OfflineMatchConfig } from './components/OfflineSetupModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useChessGame } from './hooks/useChessGame';
 import { useAuth } from './hooks/useAuth';
 import './App.css';
@@ -38,6 +39,7 @@ function App() {
     aiDifficulty,
     isAiThinking,
     passAndPlayAutoFlip,
+    royalLinkUsed,
     joinQueue,
     leaveQueue,
     createPrivateRoom,
@@ -48,6 +50,7 @@ function App() {
     leaveToLobby,
     makeMove,
     requestRoyalLink,
+    declineRoyalLink,
     resign,
     requestDraw,
     error,
@@ -106,8 +109,9 @@ function App() {
   };
 
   return (
-    <div className="app-wrapper">
-      {/* Universal Gaming Header */}
+    <ErrorBoundary>
+      <div className="app-wrapper">
+        {/* Universal Gaming Header */}
       <header className="app-header">
         <div className="brand-badge" onClick={leaveToLobby} style={{ cursor: 'pointer' }}>
           <div className="brand-logo-gem">🌀</div>
@@ -270,6 +274,8 @@ function App() {
               turn={gameState.turn === 'w' ? 'white' : 'black'}
               lastMove={gameState.lastMove}
               onRequestRoyalLink={requestRoyalLink}
+              onDeclineRoyalLink={declineRoyalLink}
+              royalLinkUsed={royalLinkUsed}
               isPractice={mode === 'practice'}
               isAiThinking={isAiThinking}
               mode={mode}
@@ -287,6 +293,7 @@ function App() {
             lastMove={gameState.lastMove}
             mode={mode}
             aiDifficulty={aiDifficulty}
+            royalLinkUsed={royalLinkUsed}
             onFlipBoard={() => setFlipped(f => !f)}
             onResign={resign}
             onRequestDraw={requestDraw}
@@ -334,7 +341,8 @@ function App() {
         fetchHistory={fetchHistory}
         currentUser={user}
       />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
 

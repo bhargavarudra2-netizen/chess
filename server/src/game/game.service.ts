@@ -17,6 +17,7 @@ export interface GameState {
     winner: 'white' | 'black' | 'draw' | null;
     lastMove?: any;
     clocks: { white: number; black: number };
+    royalLinkUsed?: { white: boolean; black: boolean };
 }
 
 @Injectable()
@@ -26,6 +27,7 @@ export class GameService {
         portals: Portal[];
         clocks: { white: number; black: number };
         lastMoveTime: number;
+        royalLinkUsed: { white: boolean; black: boolean };
         manualResult?: { isGameOver: boolean; winner: 'white' | 'black' | 'draw' };
     }>();
 
@@ -42,7 +44,8 @@ export class GameService {
         const portals = this.portalService.generatePortals();
         // Initialize clocks (e.g., 10 minutes = 600 seconds)
         const clocks = { white: 600, black: 600 };
-        this.games.set(roomId, { chess, portals, clocks, lastMoveTime: Date.now() });
+        const royalLinkUsed = { white: false, black: false };
+        this.games.set(roomId, { chess, portals, clocks, lastMoveTime: Date.now(), royalLinkUsed });
 
         // Persist initial game
         const game = this.gameRepo.create({
@@ -88,10 +91,11 @@ export class GameService {
             fen: game.chess.fen(),
             turn: game.chess.turn(),
             portals: game.portals,
-            history: game.chess.history({ verbose: true }),
+            history: game.chess.history(),
             isGameOver,
             winner,
-            clocks: currentClocks
+            clocks: currentClocks,
+            royalLinkUsed: game.royalLinkUsed,
         };
     }
 
@@ -191,7 +195,9 @@ export class GameService {
         game.chess.load(tempChess.fen());
 
         // 6. Royal Link
-        if (moveResult.piece === 'k' && game.chess.moveNumber() < 15 && portalTargetId) {
+        const moverKey = moveResult.color === 'w' ? 'white' : 'black';
+        let royalLinkApplied = false;
+        if (moveResult.piece === 'k' && game.chess.moveNumber() < 15 && portalTargetId && !game.royalLinkUsed[moverKey]) {
             const newPortalId = `royal_${Date.now()}`;
             const target = portals.find(p => p.id === portalTargetId);
             if (target) {
@@ -205,6 +211,8 @@ export class GameService {
                 });
                 target.linkedTo = newPortalId;
                 target.color = royalColor;
+                game.royalLinkUsed[moverKey] = true;
+                royalLinkApplied = true;
             }
         }
 
@@ -221,7 +229,7 @@ export class GameService {
         //   final_to: finalDest,
         //   piece: moveResult.piece,
         //   captured: moveResult.captured,
-        //   meta: { teleported, royalLinkUsed }
+        //   meta: { teleported, royalLinkUsed: royalLinkApplied }
         // });
         // await this.moveRepo.save(moveEntity);
 
@@ -240,7 +248,8 @@ export class GameService {
             portals: state.portals,
             clocks: state.clocks,
             teleported,
-            finalDest
+            finalDest,
+            royalLinkUsed: state.royalLinkUsed,
         };
     }
 

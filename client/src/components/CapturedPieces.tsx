@@ -28,7 +28,7 @@ const PIECE_SYMBOLS: Record<string, { white: string; black: string }> = {
 
 export const CapturedPieces: React.FC<CapturedPiecesProps> = ({ fen }) => {
     const { capturedByWhite, capturedByBlack, whiteDiff, blackDiff } = useMemo(() => {
-        const boardPart = fen.split(' ')[0] || '';
+        const boardPart = (fen || '').split(' ')[0] || '';
         const currentCounts = {
             white: { p: 0, n: 0, b: 0, r: 0, q: 0 } as Record<string, number>,
             black: { p: 0, n: 0, b: 0, r: 0, q: 0 } as Record<string, number>,

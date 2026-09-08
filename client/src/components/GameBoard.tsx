@@ -18,6 +18,8 @@ interface GameBoardProps {
     turn: 'white' | 'black';
     lastMove?: LastMoveDetails;
     onRequestRoyalLink?: (from: string, to: string, targetPortalId: string) => void;
+    onDeclineRoyalLink?: () => void;
+    royalLinkUsed?: { white: boolean; black: boolean };
     isPractice?: boolean;
     isAiThinking?: boolean;
     mode?: string;
@@ -31,6 +33,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
     turn,
     lastMove,
     onRequestRoyalLink,
+    onDeclineRoyalLink,
+    royalLinkUsed,
     isPractice,
     isAiThinking,
     mode,
@@ -75,7 +79,16 @@ const GameBoard: React.FC<GameBoardProps> = ({
                             const moveCount = chessRef.current?.history().length || 0;
                             const isBeforeMove15 = Math.floor(moveCount / 2) < 15;
 
-                            if (isKing && isBeforeMove15 && onRequestRoyalLink && portals.length > 0) {
+                            // Castling moves (King moving 2 squares) must not trigger Royal Link
+                            const isCastling = isKing && (
+                                (orig === 'e1' && (dest === 'g1' || dest === 'c1')) ||
+                                (orig === 'e8' && (dest === 'g8' || dest === 'c8'))
+                            );
+
+                            const currentColor = activeMovableColor;
+                            const hasUsedRoyalLink = royalLinkUsed ? royalLinkUsed[currentColor] : false;
+
+                            if (isKing && !isCastling && isBeforeMove15 && onRequestRoyalLink && portals.length > 0 && !hasUsedRoyalLink) {
                                 setPendingRoyalMove({ from: orig, to: dest });
                             } else {
                                 onMove(orig, dest);
@@ -162,7 +175,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
                         onRequestRoyalLink?.(pendingRoyalMove.from, pendingRoyalMove.to, targetPortalId);
                         setPendingRoyalMove(null);
                     }}
-                    onSkip={() => {
+                    onSkip={(dontAskAgain) => {
+                        if (dontAskAgain) {
+                            onDeclineRoyalLink?.();
+                        }
                         onMove(pendingRoyalMove.from, pendingRoyalMove.to);
                         setPendingRoyalMove(null);
                     }}
