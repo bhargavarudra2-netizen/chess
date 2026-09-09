@@ -10,7 +10,7 @@ import {
     playGameOverSound,
     playRoyalLinkSound,
 } from '../utils/soundEffects';
-import { resolvePortalDestination } from '../utils/portalRules';
+import { resolvePortalDestination, generateRandomPortals } from '../utils/portalRules';
 import { findBestMove, type AiDifficulty } from '../utils/portalAi';
 
 interface MoveResponsePayload {
@@ -33,14 +33,9 @@ const checkCheckmate = (c: any): boolean =>
 const checkDraw = (c: any): boolean =>
     typeof c.isDraw === 'function' ? c.isDraw() : (typeof c.in_draw === 'function' ? c.in_draw() : false);
 
-// Generate default initial portals for offline modes
+// Generate random portals for each offline match
 const generatePracticePortals = (): Portal[] => {
-    return [
-        { id: 'p0_a', r: 3, c: 3, linkedTo: 'p0_b', color: '#06b6d4' }, // d5
-        { id: 'p0_b', r: 4, c: 4, linkedTo: 'p0_a', color: '#06b6d4' }, // e4
-        { id: 'p1_a', r: 2, c: 2, linkedTo: 'p1_b', color: '#a855f7' }, // c6
-        { id: 'p1_b', r: 5, c: 5, linkedTo: 'p1_a', color: '#a855f7' }, // f3
-    ];
+    return generateRandomPortals(2);
 };
 
 export const useChessGame = () => {
@@ -518,31 +513,8 @@ export const useChessGame = () => {
                 color: royalColor,
             });
 
-            // King teleports directly to target portal square!
-            const targetPortal = (gameState?.portals || []).find(p => p.id === linkPortalId);
-            let teleported = false;
-            let finalDestSq = to;
-
-            if (targetPortal) {
-                const targetSq = `${String.fromCharCode(targetPortal.c + 97)}${8 - targetPortal.r}`;
-                const destPiece = chess.get(targetSq as any);
-                // Can warp to target portal if empty or occupied by enemy (capture via teleport)
-                if (!destPiece || destPiece.color !== moveRes.color) {
-                    const kingPiece = chess.remove(to as any);
-                    if (kingPiece) {
-                        if (destPiece) {
-                            chess.remove(targetSq as any);
-                        }
-                        chess.put(kingPiece, targetSq as any);
-                        teleported = true;
-                        finalDestSq = targetSq;
-                    }
-                }
-            }
-
             practiceChessRef.current = chess;
             playRoyalLinkSound();
-            if (teleported) playTeleportSound();
             setError(null);
 
             const isOver = checkGameOver(chess);
@@ -560,15 +532,14 @@ export const useChessGame = () => {
                     fen: chess.fen(),
                     turn: chess.turn(),
                     portals: updatedPortals,
-                    history: [...prev.history, teleported ? `${moveRes.san} (👑→${finalDestSq})` : `${moveRes.san} (👑)`],
+                    history: [...prev.history, `${moveRes.san} (👑 Royal Link on ${from})`],
                     isGameOver: isOver,
                     winner: winResult,
                     lastMove: {
                         from,
-                        to: finalDestSq,
+                        to,
                         san: moveRes.san,
-                        teleported,
-                        finalDest: teleported ? { r: 8 - parseInt(finalDestSq[1], 10), c: finalDestSq.charCodeAt(0) - 97 } : undefined,
+                        teleported: false,
                     },
                 };
             });

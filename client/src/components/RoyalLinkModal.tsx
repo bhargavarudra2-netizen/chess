@@ -70,12 +70,12 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                         👑
                     </div>
                     <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 800, color: '#fef08a' }}>
-                        Activate Royal Link
+                        👑 Activate Royal Link (Castling)
                     </h3>
                     <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                        Your King moved from <b style={{ color: '#ffd700' }}>{fromSquare}</b> to{' '}
-                        <b style={{ color: '#ffd700' }}>{toSquare}</b>. You can create a permanent golden portal on{' '}
-                        <b style={{ color: '#ffd700' }}>{fromSquare}</b> linked to an existing portal! (One-time move)
+                        Your King has castled from <b style={{ color: '#ffd700' }}>{fromSquare}</b> to{' '}
+                        <b style={{ color: '#ffd700' }}>{toSquare}</b>! You can create a permanent golden Royal Portal on{' '}
+                        <b style={{ color: '#ffd700' }}>{fromSquare}</b> linked to an existing portal. (One-time move; all pieces can use it!)
                     </p>
                 </div>
 

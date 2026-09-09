@@ -259,7 +259,7 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                                 }}
                             >
                                 <span>👑 Royal Link Ready</span>
-                                <span style={{ fontSize: '10px', color: '#ffd700' }}>Move King before turn 15</span>
+                                <span style={{ fontSize: '10px', color: '#ffd700' }}>Castle to activate</span>
                             </div>
                         )
                     )

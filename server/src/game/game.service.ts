@@ -194,10 +194,11 @@ export class GameService {
         // 5. Apply to real game
         game.chess.load(tempChess.fen());
 
-        // 6. Royal Link
+        // 6. Royal Link: One-time move activated only when castling
         const moverKey = moveResult.color === 'w' ? 'white' : 'black';
         let royalLinkApplied = false;
-        if (moveResult.piece === 'k' && game.chess.moveNumber() < 15 && portalTargetId && !game.royalLinkUsed[moverKey]) {
+        const isCastlingMove = moveResult.piece === 'k' && (moveResult.san === 'O-O' || moveResult.san === 'O-O-O');
+        if (isCastlingMove && portalTargetId && !game.royalLinkUsed[moverKey]) {
             const newPortalId = `royal_${Date.now()}`;
             const target = portals.find(p => p.id === portalTargetId);
             if (target) {

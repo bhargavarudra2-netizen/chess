@@ -76,10 +76,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                         after: (orig, dest) => {
                             const piece = chessRef.current?.get(orig);
                             const isKing = piece && piece.type === 'k';
-                            const moveCount = chessRef.current?.history().length || 0;
-                            const isBeforeMove15 = Math.floor(moveCount / 2) < 15;
-
-                            // Castling moves (King moving 2 squares) must not trigger Royal Link
+                            // Royal Link: One-time move that can ONLY be used when castling!
                             const isCastling = isKing && (
                                 (orig === 'e1' && (dest === 'g1' || dest === 'c1')) ||
                                 (orig === 'e8' && (dest === 'g8' || dest === 'c8'))
@@ -88,7 +85,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                             const currentColor = activeMovableColor;
                             const hasUsedRoyalLink = royalLinkUsed ? royalLinkUsed[currentColor] : false;
 
-                            if (isKing && !isCastling && isBeforeMove15 && onRequestRoyalLink && portals.length > 0 && !hasUsedRoyalLink) {
+                            if (isCastling && !hasUsedRoyalLink && onRequestRoyalLink && portals.length > 0) {
                                 setPendingRoyalMove({ from: orig, to: dest });
                             } else {
                                 onMove(orig, dest);

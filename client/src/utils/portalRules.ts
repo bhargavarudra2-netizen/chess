@@ -50,3 +50,38 @@ export const resolvePortalDestination = (
 
     return { r: linked.r, c: linked.c };
 };
+
+export const generateRandomPortals = (pairCount: number = 2): Portal[] => {
+    const PORTAL_COLORS = ['#06b6d4', '#a855f7', '#ec4899', '#10b981'];
+    const portals: Portal[] = [];
+    const used = new Set<string>();
+
+    const key = (r: number, c: number) => `${r},${c}`;
+    // Ranks 2, 3, 4, 5 correspond to ranks 3, 4, 5, 6 on the board (free from initial piece setup)
+    const randRank = () => Math.floor(Math.random() * 4) + 2;
+    const randFile = () => Math.floor(Math.random() * 8);
+
+    for (let i = 0; i < pairCount; i++) {
+        let p1: { r: number; c: number };
+        let p2: { r: number; c: number };
+
+        do {
+            p1 = { r: randRank(), c: randFile() };
+        } while (used.has(key(p1.r, p1.c)));
+        used.add(key(p1.r, p1.c));
+
+        do {
+            p2 = { r: randRank(), c: randFile() };
+        } while (used.has(key(p2.r, p2.c)));
+        used.add(key(p2.r, p2.c));
+
+        const id1 = `p${i}_a`;
+        const id2 = `p${i}_b`;
+        const color = PORTAL_COLORS[i % PORTAL_COLORS.length];
+
+        portals.push({ ...p1, id: id1, linkedTo: id2, color });
+        portals.push({ ...p2, id: id2, linkedTo: id1, color });
+    }
+
+    return portals;
+};
