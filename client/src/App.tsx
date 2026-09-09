@@ -38,7 +38,6 @@ function App() {
     pendingRoomCode,
     aiDifficulty,
     isAiThinking,
-    passAndPlayAutoFlip,
     royalLinkUsed,
     joinQueue,
     leaveQueue,
@@ -47,6 +46,7 @@ function App() {
     startPractice,
     startVsAi,
     startPassAndPlay,
+    rematch,
     leaveToLobby,
     makeMove,
     requestRoyalLink,
@@ -63,6 +63,7 @@ function App() {
   };
 
   const handleStartOfflineMatch = (config: OfflineMatchConfig) => {
+    setFlipped(false);
     if (config.subMode === 'vs_ai') {
       startVsAi({
         difficulty: config.difficulty,
@@ -78,8 +79,9 @@ function App() {
   };
 
   const getEffectiveOrientation = (): 'white' | 'black' => {
-    if (mode === 'pass_and_play' && passAndPlayAutoFlip && gameState) {
-      return gameState.turn === 'w' ? 'white' : 'black';
+    if (mode === 'pass_and_play') {
+      // Keep board stable: do not automatically rotate on turn; only flip if manual flip toggled
+      return flipped ? 'black' : 'white';
     }
     if (flipped) {
       return playerColor === 'black' ? 'white' : 'black';
@@ -297,6 +299,8 @@ function App() {
             onFlipBoard={() => setFlipped(f => !f)}
             onResign={resign}
             onRequestDraw={requestDraw}
+            onRematch={rematch}
+            onExitToLobby={leaveToLobby}
           />
         </main>
       ) : (

@@ -19,6 +19,8 @@ interface GameInfoProps {
     onResign?: () => void;
     onRequestDraw?: () => void;
     onFlipBoard?: () => void;
+    onRematch?: () => void;
+    onExitToLobby?: () => void;
 }
 
 // Safely format any move item (whether string or verbose chess.js object)
@@ -44,6 +46,8 @@ export const GameInfo: React.FC<GameInfoProps> = ({
     onResign,
     onRequestDraw,
     onFlipBoard,
+    onRematch,
+    onExitToLobby,
 }) => {
     const historyEndRef = useRef<HTMLDivElement>(null);
     const [soundOn, setSoundOn] = useState(isSoundEnabled());
@@ -336,65 +340,118 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                     </div>
                 </div>
 
-                {/* Game Over Banner */}
-                {isGameOver && (
+                {/* Game Over Banner with Rematch and Back to Lobby */}
+                {isGameOver ? (
                     <div
                         style={{
-                            background: 'rgba(239, 68, 68, 0.2)',
-                            border: '1px solid #ef4444',
+                            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))',
+                            border: '1px solid rgba(239, 68, 68, 0.5)',
                             borderRadius: '8px',
-                            padding: '12px',
+                            padding: '14px',
                             textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
                         }}
                     >
-                        <div style={{ fontSize: '15px', fontWeight: 700, color: '#fca5a5' }}>
-                            {isCheckmate ? 'Checkmate!' : 'Game Over'}
+                        <div>
+                            <div style={{ fontSize: '16px', fontWeight: 800, color: '#fca5a5' }}>
+                                {isCheckmate ? '⚔️ Checkmate!' : '🏁 Game Over'}
+                            </div>
+                            <div style={{ fontSize: '13px', color: '#e2e8f0', marginTop: '4px' }}>
+                                {winner === 'draw' ? 'Drawn Game' : `Winner: ${winner?.toUpperCase()}`}
+                            </div>
                         </div>
-                        <div style={{ fontSize: '13px', color: '#e2e8f0', marginTop: '4px' }}>
-                            {winner === 'draw' ? 'Drawn Game' : `Winner: ${winner?.toUpperCase()}`}
+
+                        {/* Rematch & Back to Lobby Buttons */}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            {onRematch && (
+                                <button
+                                    onClick={onRematch}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px 12px',
+                                        background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                        border: '1px solid #38bdf8',
+                                        borderRadius: '6px',
+                                        color: '#ffffff',
+                                        fontSize: '13px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                                    }}
+                                >
+                                    <span>🔄</span> Rematch
+                                </button>
+                            )}
+                            {onExitToLobby && (
+                                <button
+                                    onClick={onExitToLobby}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px 12px',
+                                        background: 'rgba(255, 255, 255, 0.08)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '6px',
+                                        color: '#e2e8f0',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px',
+                                    }}
+                                >
+                                    <span>←</span> Lobby
+                                </button>
+                            )}
                         </div>
                     </div>
+                ) : (
+                    /* Actions (Resign / Draw) while playing */
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                        <button
+                            onClick={onResign}
+                            style={{
+                                flex: 1,
+                                padding: '9px',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                borderRadius: '6px',
+                                color: '#f87171',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            Resign
+                        </button>
+                        <button
+                            onClick={onRequestDraw}
+                            style={{
+                                flex: 1,
+                                padding: '9px',
+                                background: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                borderRadius: '6px',
+                                color: '#e2e8f0',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            Offer Draw
+                        </button>
+                    </div>
                 )}
-
-                {/* Actions (Resign / Draw) */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    <button
-                        onClick={onResign}
-                        disabled={isGameOver}
-                        style={{
-                            flex: 1,
-                            padding: '9px',
-                            background: isGameOver ? 'rgba(255, 255, 255, 0.03)' : 'rgba(239, 68, 68, 0.15)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            borderRadius: '6px',
-                            color: isGameOver ? '#64748b' : '#f87171',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: isGameOver ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        Resign
-                    </button>
-                    <button
-                        onClick={onRequestDraw}
-                        disabled={isGameOver}
-                        style={{
-                            flex: 1,
-                            padding: '9px',
-                            background: isGameOver ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.07)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                            borderRadius: '6px',
-                            color: isGameOver ? '#64748b' : '#e2e8f0',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: isGameOver ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        Offer Draw
-                    </button>
-                </div>
             </div>
 
             {/* Bottom Player Clock */}

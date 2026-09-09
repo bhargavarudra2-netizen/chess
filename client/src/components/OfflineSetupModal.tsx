@@ -26,7 +26,7 @@ export const OfflineSetupModal: React.FC<OfflineSetupModalProps> = ({
     const [difficulty, setDifficulty] = useState<AiDifficulty>('adept');
     const [colorPick, setColorPick] = useState<'white' | 'black' | 'random'>('white');
     const [timerSeconds, setTimerSeconds] = useState<number>(600); // 10 min default
-    const [autoFlip, setAutoFlip] = useState<boolean>(true);
+    const [autoFlip, setAutoFlip] = useState<boolean>(false);
 
     if (!isOpen) return null;
 

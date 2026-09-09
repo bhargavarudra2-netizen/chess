@@ -269,11 +269,17 @@ export const useChessGame = () => {
             const destSq = `${String.fromCharCode(teleportDest.c + 97)}${8 - teleportDest.r}`;
             const piece = chess.remove(to as any);
             if (piece) {
+                // If there's an opponent piece on destination portal, remove it (capture via teleport)
+                const targetPiece = chess.get(destSq as any);
+                if (targetPiece) {
+                    chess.remove(destSq as any);
+                }
                 chess.put(piece, destSq as any);
             }
             finalFen = chess.fen();
         }
 
+        practiceChessRef.current = chess;
         triggerMoveAudio(teleported, moveRes.san);
         setError(null);
 
@@ -347,8 +353,15 @@ export const useChessGame = () => {
         socketRef.current.emit('join_room', { gameId: code });
     }, []);
 
+    const lastConfigRef = useRef<{
+        mode: 'lobby' | 'practice' | 'vs_ai' | 'pass_and_play' | 'game';
+        vsAiConfig?: { difficulty: AiDifficulty; playerColor: 'white' | 'black'; timeControlSeconds: number };
+        passAndPlayConfig?: { timeControlSeconds: number; autoFlip: boolean };
+    }>({ mode: 'lobby' });
+
     const startPractice = useCallback(() => {
         setError(null);
+        lastConfigRef.current = { mode: 'practice' };
         const portals = generatePracticePortals();
         const chess = new Chess();
         practiceChessRef.current = chess;
@@ -374,6 +387,7 @@ export const useChessGame = () => {
         timeControlSeconds: number;
     }) => {
         setError(null);
+        lastConfigRef.current = { mode: 'vs_ai', vsAiConfig: config };
         const portals = generatePracticePortals();
         const chess = new Chess();
         practiceChessRef.current = chess;
@@ -411,6 +425,7 @@ export const useChessGame = () => {
         autoFlip: boolean;
     }) => {
         setError(null);
+        lastConfigRef.current = { mode: 'pass_and_play', passAndPlayConfig: config };
         const portals = generatePracticePortals();
         const chess = new Chess();
         practiceChessRef.current = chess;
@@ -432,25 +447,44 @@ export const useChessGame = () => {
         setMode('pass_and_play');
     }, []);
 
+    const rematch = useCallback(() => {
+        if (mode === 'vs_ai' && lastConfigRef.current.vsAiConfig) {
+            startVsAi(lastConfigRef.current.vsAiConfig);
+        } else if (mode === 'pass_and_play' && lastConfigRef.current.passAndPlayConfig) {
+            startPassAndPlay(lastConfigRef.current.passAndPlayConfig);
+        } else if (mode === 'practice') {
+            startPractice();
+        } else if (socketRef.current && roomId) {
+            socketRef.current.emit('request_rematch', { gameId: roomId });
+        }
+    }, [mode, startVsAi, startPassAndPlay, startPractice, roomId]);
+
     const leaveToLobby = useCallback(() => {
-        if (isSearching) leaveQueue();
-        setMode('lobby');
-        setGameState(null);
+        if (socketRef.current) {
+            socketRef.current.emit('leave_room');
+        }
         setRoomId(null);
-        setPendingRoomCode(null);
+        setGameState(null);
+        setMode('lobby');
         setError(null);
-        setIsAiThinking(false);
-    }, [isSearching, leaveQueue]);
+        setIsSearching(false);
+        setPendingRoomCode(null);
+        practiceChessRef.current = null;
+    }, []);
 
     const makeMove = useCallback((from: string, to: string) => {
         if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
-            executeOfflineMove(from, to, mode);
-            return;
+            return executeOfflineMove(from, to, mode);
         }
 
-        // Online mode: send to server
         if (!socketRef.current || !roomId) return;
-        socketRef.current.emit('make_move', { gameId: roomId, from, to });
+        setError(null);
+        socketRef.current.emit('move', {
+            gameId: roomId,
+            from,
+            to,
+            promotion: 'q',
+        });
     }, [mode, roomId, executeOfflineMove]);
 
     const requestRoyalLink = useCallback((from: string, to: string, linkPortalId: string) => {
@@ -484,7 +518,31 @@ export const useChessGame = () => {
                 color: royalColor,
             });
 
+            // King teleports directly to target portal square!
+            const targetPortal = (gameState?.portals || []).find(p => p.id === linkPortalId);
+            let teleported = false;
+            let finalDestSq = to;
+
+            if (targetPortal) {
+                const targetSq = `${String.fromCharCode(targetPortal.c + 97)}${8 - targetPortal.r}`;
+                const destPiece = chess.get(targetSq as any);
+                // Can warp to target portal if empty or occupied by enemy (capture via teleport)
+                if (!destPiece || destPiece.color !== moveRes.color) {
+                    const kingPiece = chess.remove(to as any);
+                    if (kingPiece) {
+                        if (destPiece) {
+                            chess.remove(targetSq as any);
+                        }
+                        chess.put(kingPiece, targetSq as any);
+                        teleported = true;
+                        finalDestSq = targetSq;
+                    }
+                }
+            }
+
+            practiceChessRef.current = chess;
             playRoyalLinkSound();
+            if (teleported) playTeleportSound();
             setError(null);
 
             const isOver = checkGameOver(chess);
@@ -502,14 +560,15 @@ export const useChessGame = () => {
                     fen: chess.fen(),
                     turn: chess.turn(),
                     portals: updatedPortals,
-                    history: [...prev.history, `${moveRes.san} (👑)`],
+                    history: [...prev.history, teleported ? `${moveRes.san} (👑→${finalDestSq})` : `${moveRes.san} (👑)`],
                     isGameOver: isOver,
                     winner: winResult,
                     lastMove: {
                         from,
-                        to,
+                        to: finalDestSq,
                         san: moveRes.san,
-                        teleported: false,
+                        teleported,
+                        finalDest: teleported ? { r: 8 - parseInt(finalDestSq[1], 10), c: finalDestSq.charCodeAt(0) - 97 } : undefined,
                     },
                 };
             });
@@ -585,6 +644,7 @@ export const useChessGame = () => {
         startPractice,
         startVsAi,
         startPassAndPlay,
+        rematch,
         leaveToLobby,
         makeMove,
         requestRoyalLink,
