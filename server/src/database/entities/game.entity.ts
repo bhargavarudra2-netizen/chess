@@ -37,7 +37,7 @@ export class Game {
     @CreateDateColumn()
     created_at: Date;
 
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'datetime', nullable: true })
     last_move_at: Date;
 
     @OneToMany(() => Move, (move) => move.game)

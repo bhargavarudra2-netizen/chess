@@ -16,7 +16,7 @@ export class Portal {
     @Column()
     from_square: string; // e.g. "d4"
 
-    @Column("text", { array: true })
+    @Column("simple-array")
     to_squares: string[]; // e.g. ["h8"]
 
     @Column({ default: false })

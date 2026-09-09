@@ -11,13 +11,13 @@ export class GameState {
     @Column()
     fen: string;
 
-    @Column({ type: 'jsonb', nullable: true })
+    @Column({ type: 'simple-json', nullable: true })
     portals: any; // Snapshot of portals at this state
 
     @Column()
     move_number: number;
 
-    @Column({ type: 'jsonb', nullable: true })
+    @Column({ type: 'simple-json', nullable: true })
     clocks: any; // { white: 300, black: 295 }
 
     @CreateDateColumn()
