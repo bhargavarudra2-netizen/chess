@@ -77,16 +77,18 @@ export const Lobby: React.FC<LobbyProps> = ({
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '54px',
-                        height: '54px',
-                        borderRadius: '14px',
-                        background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
-                        boxShadow: '0 0 24px rgba(6, 182, 212, 0.6)',
-                        fontSize: '28px',
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        boxShadow: '0 0 28px rgba(6, 182, 212, 0.65)',
                         marginBottom: '14px',
                     }}
                 >
-                    🌀
+                    <img
+                        src="/portal-chess.svg"
+                        alt="Portal Chess"
+                        style={{ width: '100%', height: '100%' }}
+                    />
                 </div>
                 <h1
                     style={{

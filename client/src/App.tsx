@@ -117,7 +117,16 @@ function App() {
         {/* Universal Gaming Header */}
       <header className="app-header">
         <div className="brand-badge" onClick={leaveToLobby} style={{ cursor: 'pointer' }}>
-          <div className="brand-logo-gem">🌀</div>
+          <img
+            src="/portal-chess.svg"
+            alt="Portal Chess Logo"
+            style={{
+              width: '32px',
+              height: '32px',
+              filter: 'drop-shadow(0 0 10px rgba(6, 182, 212, 0.7))',
+              borderRadius: '50%',
+            }}
+          />
           <span className="brand-title">Portal Chess</span>
           <span className="portal-tag">Quantum Arena</span>
         </div>
