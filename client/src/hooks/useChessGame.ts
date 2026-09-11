@@ -217,11 +217,17 @@ export const useChessGame = () => {
                 const turn = gameState.turn;
                 if (turn === 'w') {
                     const nextWhite = Math.max(0, prev.white - 1);
-                    if (nextWhite === 0 && !gameState.isGameOver) playGameOverSound();
+                    if (nextWhite === 0 && !gameState.isGameOver) {
+                        playGameOverSound();
+                        setGameState(g => g ? { ...g, isGameOver: true, winner: 'black' } : null);
+                    }
                     return { ...prev, white: nextWhite };
                 } else {
                     const nextBlack = Math.max(0, prev.black - 1);
-                    if (nextBlack === 0 && !gameState.isGameOver) playGameOverSound();
+                    if (nextBlack === 0 && !gameState.isGameOver) {
+                        playGameOverSound();
+                        setGameState(g => g ? { ...g, isGameOver: true, winner: 'white' } : null);
+                    }
                     return { ...prev, black: nextBlack };
                 }
             });
@@ -535,9 +541,18 @@ export const useChessGame = () => {
             const newPortalId = `royal_${Date.now()}`;
             const royalColor = '#FFD700';
 
+            const targetPortal = (gameState?.portals || []).find(p => p.id === linkPortalId);
+            const originalLink = targetPortal?.fallbackLinkedTo || (targetPortal?.linkedTo !== newPortalId ? targetPortal?.linkedTo : undefined);
+
             const updatedPortals = (gameState?.portals || []).map(p => {
                 if (p.id === linkPortalId) {
-                    return { ...p, linkedTo: newPortalId, color: royalColor };
+                    return {
+                        ...p,
+                        royalLinkedTo: newPortalId,
+                        fallbackLinkedTo: originalLink,
+                        linkedTo: newPortalId,
+                        color: royalColor,
+                    };
                 }
                 return p;
             });

@@ -9,6 +9,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import type { Portal, LastMoveDetails } from '../types';
 import PortalOverlay from './PortalOverlay';
 import RoyalLinkModal from './RoyalLinkModal';
+import { playCheckSound } from '../utils/soundEffects';
 
 interface GameBoardProps {
     fen: string;
@@ -65,13 +66,43 @@ const GameBoard: React.FC<GameBoardProps> = ({
     const onMoveRef = useRef(onMove);
     useEffect(() => { onMoveRef.current = onMove; }, [onMove]);
 
+    const inCheck = chessRef.current
+        ? (typeof chessRef.current.inCheck === 'function' ? chessRef.current.inCheck() : (typeof chessRef.current.isCheck === 'function' ? chessRef.current.isCheck() : false))
+        : false;
+
+    const prevInCheckRef = useRef(false);
+    useEffect(() => {
+        if (inCheck && !prevInCheckRef.current) {
+            playCheckSound();
+        }
+        prevInCheckRef.current = inCheck;
+    }, [inCheck]);
+
+    const getCheckedKingCoords = () => {
+        if (!inCheck || !chessRef.current) return null;
+        const checkedColor = chessRef.current.turn();
+        const board = chessRef.current.board();
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = board[r][c];
+                if (p && p.type === 'k' && p.color === checkedColor) {
+                    return { r, c };
+                }
+            }
+        }
+        return null;
+    };
+    const checkedKingCoord = getCheckedKingCoords();
+
     useEffect(() => {
         chessRef.current = new Chess(fen);
         if (api && chessRef.current) {
+            const currentInCheck = typeof chessRef.current.inCheck === 'function' ? chessRef.current.inCheck() : (typeof chessRef.current.isCheck === 'function' ? chessRef.current.isCheck() : false);
             api.set({
                 fen,
                 orientation,
                 turnColor: turn,
+                check: currentInCheck,
                 movable: {
                     color: isAiThinking ? undefined : activeMovableColor,
                     dests: isAiThinking ? new Map() : getDests(chessRef.current, activeMovableColor),
@@ -153,6 +184,25 @@ const GameBoard: React.FC<GameBoardProps> = ({
         >
             <div ref={boardRef} style={{ width: '100%', height: '100%' }} />
             <PortalOverlay portals={portals} orientation={orientation} lastMove={lastMove} />
+
+            {/* King in Check Red Square Highlight */}
+            {checkedKingCoord && (
+                <div
+                    className="king-check-highlight"
+                    style={{
+                        position: 'absolute',
+                        top: `${(orientation === 'white' ? checkedKingCoord.r : 7 - checkedKingCoord.r) * 12.5}%`,
+                        left: `${(orientation === 'white' ? checkedKingCoord.c : 7 - checkedKingCoord.c) * 12.5}%`,
+                        width: '12.5%',
+                        height: '12.5%',
+                        pointerEvents: 'none',
+                        zIndex: 15,
+                        background: 'radial-gradient(circle, rgba(239, 68, 68, 0.75) 0%, rgba(220, 38, 38, 0.4) 60%, rgba(185, 28, 28, 0.1) 100%)',
+                        boxShadow: 'inset 0 0 14px rgba(239, 68, 68, 0.9), 0 0 16px rgba(239, 68, 68, 0.8)',
+                        borderRadius: '4px',
+                    }}
+                />
+            )}
 
             {/* Warning Banner (e.g. King cannot teleport into check) */}
             {warning && (

@@ -65,7 +65,8 @@ export const GameInfo: React.FC<GameInfoProps> = ({
 
     const lastMoveStr = history.length > 0 ? formatMove(history[history.length - 1]) : '';
     const isCheck = lastMoveStr.includes('+');
-    const isCheckmate = isGameOver && winner && winner !== 'draw';
+    const isTimeout = isGameOver && (clocks.white === 0 || clocks.black === 0);
+    const isCheckmate = isGameOver && winner && winner !== 'draw' && !isTimeout;
 
     const isMyRoyalLinkUsed = royalLinkUsed ? royalLinkUsed[playerColor === 'black' ? 'black' : 'white'] : false;
 
@@ -357,10 +358,10 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                     >
                         <div>
                             <div style={{ fontSize: '16px', fontWeight: 800, color: '#fca5a5' }}>
-                                {isCheckmate ? '⚔️ Checkmate!' : '🏁 Game Over'}
+                                {isTimeout ? '⌛ Out of Time!' : isCheckmate ? '⚔️ Checkmate!' : '🏁 Game Over'}
                             </div>
                             <div style={{ fontSize: '13px', color: '#e2e8f0', marginTop: '4px' }}>
-                                {winner === 'draw' ? 'Drawn Game' : `Winner: ${winner?.toUpperCase()}`}
+                                {winner === 'draw' ? 'Drawn Game' : isTimeout ? `${winner?.toUpperCase()} won on time` : `Winner: ${winner?.toUpperCase()}`}
                             </div>
                         </div>
 

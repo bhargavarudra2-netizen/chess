@@ -6,6 +6,8 @@ export interface Portal {
     r: number;
     c: number;
     linkedTo: string;
+    royalLinkedTo?: string;
+    fallbackLinkedTo?: string;
     color?: string; // For UI visualization
 }
 
@@ -48,7 +50,8 @@ export class PortalService {
     }
 
     getLinkedPortal(portals: Portal[], portal: Portal): Portal | undefined {
-        return portals.find(p => p.id === portal.linkedTo);
+        const targetId = portal.royalLinkedTo || portal.linkedTo;
+        return portals.find(p => p.id === targetId);
     }
 
     canBishopUsePortal(from: { r: number, c: number }, to: { r: number, c: number }): boolean {
@@ -59,7 +62,7 @@ export class PortalService {
 
     /**
      * Determines the final destination of a piece moving to a square.
-     * Handles: Bishop rule, blocking by same color.
+     * Handles: Royal Link priority, Bishop rule, blocking by same color, fallback portal, King check safety.
      * Returns the portal target square if teleport happens, or null if no teleport (stays at 'to').
      */
     resolvePortalDestination(
@@ -74,58 +77,67 @@ export class PortalService {
         const portal = this.getPortalAt(portals, to.r, to.c);
         if (!portal) return null;
 
-        const linked = this.getLinkedPortal(portals, portal);
-        if (!linked) return null; // One-way or broken link?
-
-        // 1. Bishop Rule
-        if (pieceType === 'b') {
-            if (!this.canBishopUsePortal(from, { r: linked.r, c: linked.c })) return null; // Cannot enter
+        // Build candidates with Royal Link prioritized first, then fallback, then normal linkedTo
+        const candidateIds: string[] = [];
+        if (portal.royalLinkedTo) {
+            candidateIds.push(portal.royalLinkedTo);
+        }
+        if (portal.fallbackLinkedTo && !candidateIds.includes(portal.fallbackLinkedTo)) {
+            candidateIds.push(portal.fallbackLinkedTo);
+        }
+        if (portal.linkedTo && !candidateIds.includes(portal.linkedTo)) {
+            candidateIds.push(portal.linkedTo);
         }
 
-        // 2. Check destination occupancy
-        // We need to know if the destination is occupied by a friend.
-        // boardState is expected to be the Chess instance *after* the move to 'to' has effectively happened?
-        // No, usually we check occupancy *before* we put the piece there?
-        // But in this flow, the piece is at 'to' (the portal entrance).
-        // We need to check 'linked' square.
+        for (const candidateId of candidateIds) {
+            const linked = portals.find(p => p.id === candidateId);
+            if (!linked) continue;
 
-        // Helper to get piece at r,c from chess.js instance
-        const destSq = this.toSquare(linked.r, linked.c);
-        const destPiece = boardState.get(destSq);
-
-        if (destPiece && destPiece.color === pieceColor) {
-            return null; // Blocked by friend, stay at entrance
-        }
-
-        // 3. King Check Rule: King must NOT be teleported into check via any portal!
-        if (pieceType === 'k') {
-            try {
-                const toSqName = this.toSquare(to.r, to.c);
-                const simChess = new Chess(boardState.fen());
-                simChess.remove(toSqName as any);
-                simChess.remove(destSq as any);
-                simChess.put({ type: 'k', color: pieceColor }, destSq as any);
-
-                const opponentColor = pieceColor === 'w' ? 'b' : 'w';
-                let wouldBeInCheck = simChess.isAttacked(destSq as any, opponentColor);
-
-                if (!wouldBeInCheck) {
-                    const fenParts = simChess.fen().split(' ');
-                    fenParts[1] = pieceColor;
-                    const checkChess = new Chess(fenParts.join(' '));
-                    wouldBeInCheck = checkChess.isCheck();
-                }
-
-                if (wouldBeInCheck) {
-                    return null; // Teleport blocked: King safely remains at portal entrance square
-                }
-            } catch {
-                return null;
+            // 1. Bishop Rule
+            if (pieceType === 'b') {
+                if (!this.canBishopUsePortal(from, { r: linked.r, c: linked.c })) continue;
             }
+
+            // 2. Check destination occupancy by same color
+            const destSq = this.toSquare(linked.r, linked.c);
+            const destPiece = boardState.get(destSq);
+            if (destPiece && destPiece.color === pieceColor) {
+                // Royal Link square occupied by same color piece -> continue loop to fallback portal!
+                continue;
+            }
+
+            // 3. King Check Rule: King must NOT be teleported into check via any portal!
+            if (pieceType === 'k') {
+                try {
+                    const toSqName = this.toSquare(to.r, to.c);
+                    const simChess = new Chess(boardState.fen());
+                    simChess.remove(toSqName as any);
+                    simChess.remove(destSq as any);
+                    simChess.put({ type: 'k', color: pieceColor }, destSq as any);
+
+                    const opponentColor = pieceColor === 'w' ? 'b' : 'w';
+                    let wouldBeInCheck = simChess.isAttacked(destSq as any, opponentColor);
+
+                    if (!wouldBeInCheck) {
+                        const fenParts = simChess.fen().split(' ');
+                        fenParts[1] = pieceColor;
+                        const checkChess = new Chess(fenParts.join(' '));
+                        wouldBeInCheck = checkChess.isCheck();
+                    }
+
+                    if (wouldBeInCheck) {
+                        continue;
+                    }
+                } catch {
+                    continue;
+                }
+            }
+
+            // Teleportation successful
+            return { r: linked.r, c: linked.c };
         }
 
-        // Allowed (Empty or Enemy)
-        return { r: linked.r, c: linked.c };
+        return null;
     }
 
     private getRandomColor(): string {

@@ -3,6 +3,8 @@ export interface Portal {
     r: number;
     c: number;
     linkedTo: string;
+    royalLinkedTo?: string;
+    fallbackLinkedTo?: string;
     color?: string;
 }
 

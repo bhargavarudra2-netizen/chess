@@ -35,61 +35,93 @@ export const resolvePortalDestinationWithDetails = (
         return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
     }
 
-    const linked = getLinkedPortal(portals, portal);
-    if (!linked) {
-        return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
-    }
-
-    // 1. Bishop Rule: Bishop cannot change square color
-    if (pieceType === 'b') {
-        if (!canBishopUsePortal(from, { r: linked.r, c: linked.c })) {
-            return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: true };
+    // Determine destination candidates in priority order:
+    // Priority 1: Royal Link (portal.royalLinkedTo)
+    // Priority 2: Fallback / other connected square (portal.fallbackLinkedTo or portal.linkedTo)
+    const candidateIds: string[] = [];
+    if (portal.royalLinkedTo) {
+        candidateIds.push(portal.royalLinkedTo);
+        const fallback = portal.fallbackLinkedTo || (portal.linkedTo !== portal.royalLinkedTo ? portal.linkedTo : undefined);
+        if (fallback && !candidateIds.includes(fallback)) {
+            candidateIds.push(fallback);
+        }
+    } else if (portal.linkedTo) {
+        candidateIds.push(portal.linkedTo);
+        if (portal.fallbackLinkedTo && !candidateIds.includes(portal.fallbackLinkedTo)) {
+            candidateIds.push(portal.fallbackLinkedTo);
         }
     }
 
-    // 2. Check destination occupancy
+    if (candidateIds.length === 0) {
+        return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
+    }
+
     const toSquare = (r: number, c: number) => {
         const file = String.fromCharCode(c + 97);
         const rank = 8 - r;
         return `${file}${rank}`;
     };
 
-    const destSq = toSquare(linked.r, linked.c);
-    const destPiece = boardState.get(destSq);
+    let blockedByFriendlyPiece = false;
+    let blockedByCheck = false;
+    let blockedByBishopColor = false;
 
-    if (destPiece && destPiece.color === pieceColor) {
-        return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: true, blockedByBishopColor: false }; // Blocked by friendly piece
-    }
+    for (const candId of candidateIds) {
+        const linked = portals.find(p => p.id === candId);
+        if (!linked) continue;
 
-    // 3. King Check Rule: King must NOT be teleported into check via any portal!
-    if (pieceType === 'k') {
-        try {
-            const toSqName = toSquare(to.r, to.c);
-            const simChess = new Chess(boardState.fen());
-            simChess.remove(toSqName as any);
-            simChess.remove(destSq as any);
-            simChess.put({ type: 'k', color: pieceColor }, destSq as any);
-
-            const opponentColor = pieceColor === 'w' ? 'b' : 'w';
-            let wouldBeInCheck = simChess.isAttacked(destSq as any, opponentColor);
-
-            if (!wouldBeInCheck) {
-                const fenParts = simChess.fen().split(' ');
-                fenParts[1] = pieceColor;
-                const checkChess = new Chess(fenParts.join(' '));
-                wouldBeInCheck = checkChess.isCheck();
+        // 1. Bishop Rule: Bishop cannot change square color
+        if (pieceType === 'b') {
+            if (!canBishopUsePortal(from, { r: linked.r, c: linked.c })) {
+                blockedByBishopColor = true;
+                continue; // Cannot use this portal due to square color, try next candidate
             }
-
-            if (wouldBeInCheck) {
-                return { destination: null, blockedByCheck: true, blockedByFriendlyPiece: false, blockedByBishopColor: false };
-            }
-        } catch {
-            // If simulation throws, fail safely to prevent moving into unknown check
-            return { destination: null, blockedByCheck: true, blockedByFriendlyPiece: false, blockedByBishopColor: false };
         }
+
+        // 2. Check destination occupancy
+        const destSq = toSquare(linked.r, linked.c);
+        const destPiece = boardState.get(destSq);
+
+        if (destPiece && destPiece.color === pieceColor) {
+            blockedByFriendlyPiece = true;
+            // "if the royal link square is already occupied by the same color piece then the other portal will be opened and piece will teleport to the other connected square"
+            continue; // Try fallback candidate!
+        }
+
+        // 3. King Check Rule: King must NOT be teleported into check via any portal!
+        if (pieceType === 'k') {
+            try {
+                const toSqName = toSquare(to.r, to.c);
+                const simChess = new Chess(boardState.fen());
+                simChess.remove(toSqName as any);
+                simChess.remove(destSq as any);
+                simChess.put({ type: 'k', color: pieceColor }, destSq as any);
+
+                const opponentColor = pieceColor === 'w' ? 'b' : 'w';
+                let wouldBeInCheck = simChess.isAttacked(destSq as any, opponentColor);
+
+                if (!wouldBeInCheck) {
+                    const fenParts = simChess.fen().split(' ');
+                    fenParts[1] = pieceColor;
+                    const checkChess = new Chess(fenParts.join(' '));
+                    wouldBeInCheck = checkChess.isCheck();
+                }
+
+                if (wouldBeInCheck) {
+                    blockedByCheck = true;
+                    continue; // King would land in check, try fallback candidate!
+                }
+            } catch {
+                blockedByCheck = true;
+                continue;
+            }
+        }
+
+        // Successfully found valid portal destination!
+        return { destination: { r: linked.r, c: linked.c }, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
     }
 
-    return { destination: { r: linked.r, c: linked.c }, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
+    return { destination: null, blockedByCheck, blockedByFriendlyPiece, blockedByBishopColor };
 };
 
 export const resolvePortalDestination = (

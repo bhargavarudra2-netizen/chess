@@ -69,23 +69,39 @@ export class GameService {
         // Calculate current time based on elapsed time since last move
         // Only if game is active
         let currentClocks = { ...game.clocks };
+        let isTimedOut = false;
+        let timeoutWinner: 'white' | 'black' | null = null;
+
         if (!game.chess.isGameOver() && game.chess.history().length > 0) {
             const elapsed = (Date.now() - game.lastMoveTime) / 1000;
             if (game.chess.turn() === 'w') {
                 currentClocks.white = Math.max(0, game.clocks.white - elapsed);
+                if (currentClocks.white === 0) {
+                    isTimedOut = true;
+                    timeoutWinner = 'black';
+                }
             } else {
                 currentClocks.black = Math.max(0, game.clocks.black - elapsed);
+                if (currentClocks.black === 0) {
+                    isTimedOut = true;
+                    timeoutWinner = 'white';
+                }
             }
         }
 
-        const isGameOver = game.manualResult ? game.manualResult.isGameOver : game.chess.isGameOver();
+        const isGameOver = game.manualResult
+            ? game.manualResult.isGameOver
+            : (isTimedOut ? true : game.chess.isGameOver());
+
         const winner = game.manualResult
             ? game.manualResult.winner
-            : (game.chess.isCheckmate()
-                ? (game.chess.turn() === 'w' ? 'black' : 'white')
-                : game.chess.isDraw()
-                    ? 'draw'
-                    : null);
+            : (isTimedOut
+                ? timeoutWinner
+                : (game.chess.isCheckmate()
+                    ? (game.chess.turn() === 'w' ? 'black' : 'white')
+                    : game.chess.isDraw()
+                        ? 'draw'
+                        : null));
 
         return {
             fen: game.chess.fen(),
@@ -122,11 +138,13 @@ export class GameService {
             game.clocks.white -= elapsed;
             if (game.clocks.white <= 0) {
                 game.clocks.white = 0;
+                game.manualResult = { isGameOver: true, winner: 'black' };
             }
         } else {
             game.clocks.black -= elapsed;
             if (game.clocks.black <= 0) {
                 game.clocks.black = 0;
+                game.manualResult = { isGameOver: true, winner: 'white' };
             }
         }
         game.lastMoveTime = now;
@@ -211,6 +229,8 @@ export class GameService {
                     linkedTo: target.id,
                     color: royalColor
                 });
+                target.fallbackLinkedTo = target.linkedTo;
+                target.royalLinkedTo = newPortalId;
                 target.linkedTo = newPortalId;
                 target.color = royalColor;
                 game.royalLinkUsed[moverKey] = true;
