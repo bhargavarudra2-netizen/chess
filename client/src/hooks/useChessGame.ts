@@ -9,8 +9,9 @@ import {
     playCheckSound,
     playGameOverSound,
     playRoyalLinkSound,
+    playWarningSound,
 } from '../utils/soundEffects';
-import { resolvePortalDestination, generateRandomPortals } from '../utils/portalRules';
+import { resolvePortalDestinationWithDetails, generateRandomPortals } from '../utils/portalRules';
 import { findBestMove, type AiDifficulty } from '../utils/portalAi';
 
 interface MoveResponsePayload {
@@ -55,6 +56,7 @@ export const useChessGame = () => {
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [passAndPlayAutoFlip, setPassAndPlayAutoFlip] = useState(false);
     const [royalLinkUsed, setRoyalLinkUsed] = useState<{ white: boolean; black: boolean }>({ white: false, black: false });
+    const [warning, setWarning] = useState<string | null>(null);
 
     const socketRef = useRef<Socket | null>(null);
     const practiceChessRef = useRef<any>(null);
@@ -248,7 +250,7 @@ export const useChessGame = () => {
         // Check portal teleport
         const file = to.charCodeAt(0) - 97;
         const rank = 8 - parseInt(to[1], 10);
-        const teleportDest = resolvePortalDestination(
+        const teleportDetails = resolvePortalDestinationWithDetails(
             gameState?.portals || [],
             { r: 8 - parseInt(from[1], 10), c: from.charCodeAt(0) - 97 },
             { r: rank, c: file },
@@ -257,6 +259,17 @@ export const useChessGame = () => {
             chess
         );
 
+        if (teleportDetails.blockedByCheck) {
+            setWarning('⚠️ King Teleport Blocked: Cannot teleport into Check!');
+            playWarningSound();
+            setTimeout(() => {
+                setWarning(null);
+            }, 4500);
+        } else {
+            setWarning(null);
+        }
+
+        const teleportDest = teleportDetails.destination;
         let teleported = false;
         let finalFen = chess.fen();
         if (teleportDest) {
@@ -482,7 +495,8 @@ export const useChessGame = () => {
         });
     }, [mode, roomId, executeOfflineMove]);
 
-    const requestRoyalLink = useCallback((from: string, to: string, linkPortalId: string) => {
+    const requestRoyalLink = useCallback((from: string, to: string, linkPortalId: string, placedSquare?: string) => {
+        const portalSq = placedSquare || from;
         if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
             const chess = practiceChessRef.current || new Chess(gameState?.fen);
             if (!chess) return;
@@ -493,8 +507,8 @@ export const useChessGame = () => {
                 return;
             }
 
-            const fromRank = 8 - parseInt(from[1], 10);
-            const fromFile = from.charCodeAt(0) - 97;
+            const portalRank = 8 - parseInt(portalSq[1], 10);
+            const portalFile = portalSq.charCodeAt(0) - 97;
             const newPortalId = `royal_${Date.now()}`;
             const royalColor = '#FFD700';
 
@@ -507,8 +521,8 @@ export const useChessGame = () => {
 
             updatedPortals.push({
                 id: newPortalId,
-                r: fromRank,
-                c: fromFile,
+                r: portalRank,
+                c: portalFile,
                 linkedTo: linkPortalId,
                 color: royalColor,
             });
@@ -532,7 +546,7 @@ export const useChessGame = () => {
                     fen: chess.fen(),
                     turn: chess.turn(),
                     portals: updatedPortals,
-                    history: [...prev.history, `${moveRes.san} (👑 Royal Link on ${from})`],
+                    history: [...prev.history, `${moveRes.san} (👑 Royal Link on ${portalSq.toUpperCase()})`],
                     isGameOver: isOver,
                     winner: winResult,
                     lastMove: {
@@ -565,6 +579,7 @@ export const useChessGame = () => {
             from,
             to,
             linkPortalId,
+            placedSquare: portalSq,
         });
     }, [mode, roomId, gameState?.fen, gameState?.portals, aiDifficulty, executeOfflineMove, playerColor]);
 
@@ -591,7 +606,7 @@ export const useChessGame = () => {
             return;
         }
         if (!socketRef.current || !roomId) return;
-        socketRef.current.emit('offer_draw', { gameId: roomId });
+        socketRef.current.emit('request_draw', { gameId: roomId });
     }, [mode, roomId]);
 
     return {
@@ -608,6 +623,8 @@ export const useChessGame = () => {
         isAiThinking,
         passAndPlayAutoFlip,
         royalLinkUsed,
+        warning,
+        setWarning,
         joinQueue,
         leaveQueue,
         createPrivateRoom,

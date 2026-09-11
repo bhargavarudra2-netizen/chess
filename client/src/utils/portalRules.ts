@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js';
 import type { Portal } from '../types';
 
 export const getPortalAt = (portals: Portal[], r: number, c: number): Portal | undefined => {
@@ -14,27 +15,39 @@ export const canBishopUsePortal = (from: { r: number, c: number }, to: { r: numb
     return fromColor === toColor;
 };
 
-export const resolvePortalDestination = (
+export interface PortalResolutionDetails {
+    destination: { r: number; c: number } | null;
+    blockedByCheck: boolean;
+    blockedByFriendlyPiece: boolean;
+    blockedByBishopColor: boolean;
+}
+
+export const resolvePortalDestinationWithDetails = (
     portals: Portal[],
-    from: { r: number, c: number },
-    to: { r: number, c: number },
+    from: { r: number; c: number },
+    to: { r: number; c: number },
     pieceType: string,
     pieceColor: 'w' | 'b',
     boardState: any // chess.js instance
-): { r: number, c: number } | null => {
+): PortalResolutionDetails => {
     const portal = getPortalAt(portals, to.r, to.c);
-    if (!portal) return null;
+    if (!portal) {
+        return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
+    }
 
     const linked = getLinkedPortal(portals, portal);
-    if (!linked) return null;
+    if (!linked) {
+        return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
+    }
 
-    // 1. Bishop Rule
+    // 1. Bishop Rule: Bishop cannot change square color
     if (pieceType === 'b') {
-        if (!canBishopUsePortal(from, { r: linked.r, c: linked.c })) return null;
+        if (!canBishopUsePortal(from, { r: linked.r, c: linked.c })) {
+            return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: true };
+        }
     }
 
     // 2. Check destination occupancy
-    // We need to convert r,c to algebraic for chess.js check
     const toSquare = (r: number, c: number) => {
         const file = String.fromCharCode(c + 97);
         const rank = 8 - r;
@@ -45,10 +58,49 @@ export const resolvePortalDestination = (
     const destPiece = boardState.get(destSq);
 
     if (destPiece && destPiece.color === pieceColor) {
-        return null; // Blocked
+        return { destination: null, blockedByCheck: false, blockedByFriendlyPiece: true, blockedByBishopColor: false }; // Blocked by friendly piece
     }
 
-    return { r: linked.r, c: linked.c };
+    // 3. King Check Rule: King must NOT be teleported into check via any portal!
+    if (pieceType === 'k') {
+        try {
+            const toSqName = toSquare(to.r, to.c);
+            const simChess = new Chess(boardState.fen());
+            simChess.remove(toSqName as any);
+            simChess.remove(destSq as any);
+            simChess.put({ type: 'k', color: pieceColor }, destSq as any);
+
+            const opponentColor = pieceColor === 'w' ? 'b' : 'w';
+            let wouldBeInCheck = simChess.isAttacked(destSq as any, opponentColor);
+
+            if (!wouldBeInCheck) {
+                const fenParts = simChess.fen().split(' ');
+                fenParts[1] = pieceColor;
+                const checkChess = new Chess(fenParts.join(' '));
+                wouldBeInCheck = checkChess.isCheck();
+            }
+
+            if (wouldBeInCheck) {
+                return { destination: null, blockedByCheck: true, blockedByFriendlyPiece: false, blockedByBishopColor: false };
+            }
+        } catch {
+            // If simulation throws, fail safely to prevent moving into unknown check
+            return { destination: null, blockedByCheck: true, blockedByFriendlyPiece: false, blockedByBishopColor: false };
+        }
+    }
+
+    return { destination: { r: linked.r, c: linked.c }, blockedByCheck: false, blockedByFriendlyPiece: false, blockedByBishopColor: false };
+};
+
+export const resolvePortalDestination = (
+    portals: Portal[],
+    from: { r: number, c: number },
+    to: { r: number, c: number },
+    pieceType: string,
+    pieceColor: 'w' | 'b',
+    boardState: any // chess.js instance
+): { r: number, c: number } | null => {
+    return resolvePortalDestinationWithDetails(portals, from, to, pieceType, pieceColor, boardState).destination;
 };
 
 export const generateRandomPortals = (pairCount: number = 2): Portal[] => {

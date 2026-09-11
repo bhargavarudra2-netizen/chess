@@ -17,9 +17,10 @@ interface GameBoardProps {
     onMove: (from: string, to: string) => void;
     turn: 'white' | 'black';
     lastMove?: LastMoveDetails;
-    onRequestRoyalLink?: (from: string, to: string, targetPortalId: string) => void;
+    onRequestRoyalLink?: (from: string, to: string, targetPortalId: string, placedSquare?: string) => void;
     onDeclineRoyalLink?: () => void;
     royalLinkUsed?: { white: boolean; black: boolean };
+    warning?: string | null;
     isPractice?: boolean;
     isAiThinking?: boolean;
     mode?: string;
@@ -35,6 +36,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     onRequestRoyalLink,
     onDeclineRoyalLink,
     royalLinkUsed,
+    warning,
     isPractice,
     isAiThinking,
     mode,
@@ -46,6 +48,22 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
     const isMultiMovable = isPractice || mode === 'pass_and_play';
     const activeMovableColor = isMultiMovable ? turn : orientation;
+
+    // Stable refs to prevent stale closures in Chessground event handlers
+    const royalLinkUsedRef = useRef(royalLinkUsed);
+    useEffect(() => { royalLinkUsedRef.current = royalLinkUsed; }, [royalLinkUsed]);
+
+    const activeMovableColorRef = useRef(activeMovableColor);
+    useEffect(() => { activeMovableColorRef.current = activeMovableColor; }, [activeMovableColor]);
+
+    const portalsRef = useRef(portals);
+    useEffect(() => { portalsRef.current = portals; }, [portals]);
+
+    const onRequestRoyalLinkRef = useRef(onRequestRoyalLink);
+    useEffect(() => { onRequestRoyalLinkRef.current = onRequestRoyalLink; }, [onRequestRoyalLink]);
+
+    const onMoveRef = useRef(onMove);
+    useEffect(() => { onMoveRef.current = onMove; }, [onMove]);
 
     useEffect(() => {
         chessRef.current = new Chess(fen);
@@ -74,21 +92,24 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     dests: getDests(chess, activeMovableColor),
                     events: {
                         after: (orig, dest) => {
-                            const piece = chessRef.current?.get(orig);
-                            const isKing = piece && piece.type === 'k';
-                            // Royal Link: One-time move that can ONLY be used when castling!
-                            const isCastling = isKing && (
-                                (orig === 'e1' && (dest === 'g1' || dest === 'c1')) ||
-                                (orig === 'e8' && (dest === 'g8' || dest === 'c8'))
+                            // Royal Link: Strictly castling moves (O-O or O-O-O), NEVER standard king moves!
+                            const moves = chessRef.current?.moves({ verbose: true }) || [];
+                            const matchingMove = moves.find((m: any) => m.from === orig && m.to === dest);
+                            const isCastling = Boolean(
+                                matchingMove && (
+                                    matchingMove.san?.startsWith('O-O') ||
+                                    matchingMove.flags?.includes('k') ||
+                                    matchingMove.flags?.includes('q')
+                                )
                             );
 
-                            const currentColor = activeMovableColor;
-                            const hasUsedRoyalLink = royalLinkUsed ? royalLinkUsed[currentColor] : false;
+                            const currentColor = activeMovableColorRef.current;
+                            const hasUsedRoyalLink = royalLinkUsedRef.current ? royalLinkUsedRef.current[currentColor] : false;
 
-                            if (isCastling && !hasUsedRoyalLink && onRequestRoyalLink && portals.length > 0) {
+                            if (isCastling && !hasUsedRoyalLink && onRequestRoyalLinkRef.current && portalsRef.current.length > 0) {
                                 setPendingRoyalMove({ from: orig, to: dest });
                             } else {
-                                onMove(orig, dest);
+                                onMoveRef.current(orig, dest);
                             }
                         },
                     },
@@ -104,7 +125,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             const newApi = Chessground(boardRef.current, config);
             setApi(newApi);
         }
-    }, [boardRef, fen, orientation, onMove, api, onRequestRoyalLink, portals.length]);
+    }, [boardRef, fen, orientation, api]);
 
     // Helper to get valid destinations from chess.js
     const getDests = (chess: any, color: 'white' | 'black') => {
@@ -132,6 +153,36 @@ const GameBoard: React.FC<GameBoardProps> = ({
         >
             <div ref={boardRef} style={{ width: '100%', height: '100%' }} />
             <PortalOverlay portals={portals} orientation={orientation} lastMove={lastMove} />
+
+            {/* Warning Banner (e.g. King cannot teleport into check) */}
+            {warning && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '14px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 50,
+                        background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.95))',
+                        border: '1px solid rgba(254, 202, 202, 0.6)',
+                        boxShadow: '0 8px 25px rgba(220, 38, 38, 0.6), 0 0 15px rgba(239, 68, 68, 0.5)',
+                        color: '#ffffff',
+                        padding: '8px 20px',
+                        borderRadius: '24px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        pointerEvents: 'none',
+                        whiteSpace: 'nowrap',
+                        animation: 'fadeIn 0.25s ease-out',
+                    }}
+                >
+                    <span style={{ fontSize: '16px' }}>🛡️</span>
+                    <span>{warning}</span>
+                </div>
+            )}
 
             {/* AI Thinking Indicator */}
             {isAiThinking && (
@@ -168,8 +219,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     fromSquare={pendingRoyalMove.from}
                     toSquare={pendingRoyalMove.to}
                     portals={portals}
-                    onConfirm={targetPortalId => {
-                        onRequestRoyalLink?.(pendingRoyalMove.from, pendingRoyalMove.to, targetPortalId);
+                    fen={fen}
+                    orientation={orientation}
+                    onConfirm={(targetPortalId, placedSquare) => {
+                        onRequestRoyalLink?.(pendingRoyalMove.from, pendingRoyalMove.to, targetPortalId, placedSquare);
                         setPendingRoyalMove(null);
                     }}
                     onSkip={(dontAskAgain) => {

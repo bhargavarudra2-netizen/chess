@@ -109,21 +109,19 @@ export class GameService {
         return this.getGameState(roomId);
     }
 
-    async processMove(roomId: string, from: string, to: string, promotion: string = 'q', portalTargetId?: string) {
+    async processMove(roomId: string, from: string, to: string, promotion: string = 'q', portalTargetId?: string, placedSquare?: string) {
         const game = this.games.get(roomId);
         if (!game) throw new Error('Game not found');
 
         const { chess, portals } = game;
-
-        // 0. Update Clocks
         const now = Date.now();
-        const elapsed = (now - game.lastMoveTime) / 1000;
+        const elapsed = Math.floor((now - game.lastMoveTime) / 1000);
+
+        // Update clocks
         if (chess.turn() === 'w') {
             game.clocks.white -= elapsed;
             if (game.clocks.white <= 0) {
                 game.clocks.white = 0;
-                // Handle timeout
-                // return { ...state, isGameOver: true, winner: 'black', reason: 'timeout' };
             }
         } else {
             game.clocks.black -= elapsed;
@@ -203,10 +201,11 @@ export class GameService {
             const target = portals.find(p => p.id === portalTargetId);
             if (target) {
                 const royalColor = '#FFD700';
+                const targetSq = placedSquare ? this.parseSquare(placedSquare) : fromSq;
                 portals.push({
                     id: newPortalId,
-                    r: fromSq.r,
-                    c: fromSq.c,
+                    r: targetSq.r,
+                    c: targetSq.c,
                     linkedTo: target.id,
                     color: royalColor
                 });

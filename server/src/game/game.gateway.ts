@@ -139,11 +139,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     @SubscribeMessage('request_royal_link')
     async handleRoyalLink(
-        @MessageBody() payload: { gameId: string; from: string; to: string; linkPortalId: string },
+        @MessageBody() payload: { gameId: string; from: string; to: string; linkPortalId: string; placedSquare?: string },
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            const result = await this.gameService.processMove(payload.gameId, payload.from, payload.to, 'q', payload.linkPortalId);
+            const result = await this.gameService.processMove(
+                payload.gameId,
+                payload.from,
+                payload.to,
+                'q',
+                payload.linkPortalId,
+                payload.placedSquare,
+            );
             client.emit('move_result', { ok: true, ...result });
             client.to(payload.gameId).emit('opponent_move', result);
         } catch (e) {

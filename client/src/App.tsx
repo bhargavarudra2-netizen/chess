@@ -39,6 +39,7 @@ function App() {
     aiDifficulty,
     isAiThinking,
     royalLinkUsed,
+    warning,
     joinQueue,
     leaveQueue,
     createPrivateRoom,
@@ -278,6 +279,7 @@ function App() {
               onRequestRoyalLink={requestRoyalLink}
               onDeclineRoyalLink={declineRoyalLink}
               royalLinkUsed={royalLinkUsed}
+              warning={warning}
               isPractice={mode === 'practice'}
               isAiThinking={isAiThinking}
               mode={mode}

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Chess } from 'chess.js';
 
 export interface Portal {
     id: string;
@@ -94,6 +95,33 @@ export class PortalService {
 
         if (destPiece && destPiece.color === pieceColor) {
             return null; // Blocked by friend, stay at entrance
+        }
+
+        // 3. King Check Rule: King must NOT be teleported into check via any portal!
+        if (pieceType === 'k') {
+            try {
+                const toSqName = this.toSquare(to.r, to.c);
+                const simChess = new Chess(boardState.fen());
+                simChess.remove(toSqName as any);
+                simChess.remove(destSq as any);
+                simChess.put({ type: 'k', color: pieceColor }, destSq as any);
+
+                const opponentColor = pieceColor === 'w' ? 'b' : 'w';
+                let wouldBeInCheck = simChess.isAttacked(destSq as any, opponentColor);
+
+                if (!wouldBeInCheck) {
+                    const fenParts = simChess.fen().split(' ');
+                    fenParts[1] = pieceColor;
+                    const checkChess = new Chess(fenParts.join(' '));
+                    wouldBeInCheck = checkChess.isCheck();
+                }
+
+                if (wouldBeInCheck) {
+                    return null; // Teleport blocked: King safely remains at portal entrance square
+                }
+            } catch {
+                return null;
+            }
         }
 
         // Allowed (Empty or Enemy)
