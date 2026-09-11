@@ -144,6 +144,7 @@ export class GameService {
 
         let teleported = false;
         let finalDest = to;
+        let promotedViaPortal = false;
 
         // 3. Check Portal Teleportation
         const fromSq = this.parseSquare(from);
@@ -170,6 +171,7 @@ export class GameService {
             if (pieceType === 'p') {
                 if ((moveResult.color === 'w' && dest.r === 0) || (moveResult.color === 'b' && dest.r === 7)) {
                     pieceType = 'q';
+                    promotedViaPortal = true;
                 }
             }
 
@@ -240,10 +242,11 @@ export class GameService {
         }
 
         const state = this.getGameState(roomId)!;
+        const finalSan = (promotedViaPortal && !moveResult.san.includes('=')) ? `${moveResult.san}=Q` : moveResult.san;
 
         return {
             move: { from, to, promotion },
-            san: moveResult.san,
+            san: finalSan,
             fen: state.fen,
             portals: state.portals,
             clocks: state.clocks,

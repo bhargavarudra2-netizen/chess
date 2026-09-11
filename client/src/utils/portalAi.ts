@@ -115,7 +115,17 @@ const simulateMoveWithPortals = (
             const destSq = `${String.fromCharCode(teleportDest.c + 97)}${8 - teleportDest.r}`;
             const piece = testChess.remove(move.to as any);
             if (piece) {
-                testChess.put(piece, destSq as any);
+                let pieceType = piece.type;
+                if (piece.type === 'p') {
+                    if ((piece.color === 'w' && teleportDest.r === 0) || (piece.color === 'b' && teleportDest.r === 7)) {
+                        pieceType = 'q';
+                    }
+                }
+                const targetPiece = testChess.get(destSq as any);
+                if (targetPiece) {
+                    testChess.remove(destSq as any);
+                }
+                testChess.put({ type: pieceType, color: piece.color }, destSq as any);
             }
             return { fen: testChess.fen(), teleported: true, destSq };
         }

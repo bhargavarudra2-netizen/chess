@@ -282,7 +282,30 @@ export const useChessGame = () => {
                 if (targetPiece) {
                     chess.remove(destSq as any);
                 }
-                chess.put(piece, destSq as any);
+
+                // Promote pawn if it reaches the last row (rank 8 for white, rank 1 for black) via portal
+                let pieceType = piece.type;
+                let isPromotedViaPortal = false;
+                if (piece.type === 'p') {
+                    if ((piece.color === 'w' && teleportDest.r === 0) || (piece.color === 'b' && teleportDest.r === 7)) {
+                        pieceType = 'q';
+                        isPromotedViaPortal = true;
+                    }
+                }
+
+                chess.put({ type: pieceType, color: piece.color }, destSq as any);
+
+                if (isPromotedViaPortal) {
+                    const isCheckmate = checkCheckmate(chess);
+                    const isInCheck = typeof chess.inCheck === 'function' ? chess.inCheck() : (typeof chess.isCheck === 'function' ? chess.isCheck() : false);
+                    if (isCheckmate) {
+                        moveRes.san = `${moveRes.san.replace('+', '').replace('#', '')}=Q#`;
+                    } else if (isInCheck) {
+                        moveRes.san = `${moveRes.san.replace('+', '').replace('#', '')}=Q+`;
+                    } else if (!moveRes.san.includes('=')) {
+                        moveRes.san = `${moveRes.san}=Q`;
+                    }
+                }
             }
             finalFen = chess.fen();
         }
