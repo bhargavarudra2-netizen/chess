@@ -40,6 +40,10 @@ function App() {
     isAiThinking,
     royalLinkUsed,
     warning,
+    incomingDrawOffer,
+    incomingRematchOffer,
+    rematchPending,
+    opponentDisconnected,
     joinQueue,
     leaveQueue,
     createPrivateRoom,
@@ -48,6 +52,10 @@ function App() {
     startVsAi,
     startPassAndPlay,
     rematch,
+    acceptDraw,
+    declineDraw,
+    acceptRematch,
+    declineRematch,
     leaveToLobby,
     makeMove,
     requestRoyalLink,
@@ -307,6 +315,14 @@ function App() {
             mode={mode}
             aiDifficulty={aiDifficulty}
             royalLinkUsed={royalLinkUsed}
+            incomingDrawOffer={incomingDrawOffer}
+            incomingRematchOffer={incomingRematchOffer}
+            rematchPending={rematchPending}
+            opponentDisconnected={opponentDisconnected}
+            onAcceptDraw={acceptDraw}
+            onDeclineDraw={declineDraw}
+            onAcceptRematch={acceptRematch}
+            onDeclineRematch={declineRematch}
             onFlipBoard={() => setFlipped(f => !f)}
             onResign={resign}
             onRequestDraw={requestDraw}

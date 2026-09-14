@@ -29,6 +29,7 @@ export class GameService {
         lastMoveTime: number;
         royalLinkUsed: { white: boolean; black: boolean };
         manualResult?: { isGameOver: boolean; winner: 'white' | 'black' | 'draw' };
+        dbGameId?: number;
     }>();
 
     constructor(
@@ -45,19 +46,23 @@ export class GameService {
         // Initialize clocks (e.g., 10 minutes = 600 seconds)
         const clocks = { white: 600, black: 600 };
         const royalLinkUsed = { white: false, black: false };
-        this.games.set(roomId, { chess, portals, clocks, lastMoveTime: Date.now(), royalLinkUsed });
 
-        // Persist initial game
-        const game = this.gameRepo.create({
-            white_user_id: whiteId ? parseInt(whiteId) : null,
-            black_user_id: blackId ? parseInt(blackId) : null,
-            fen_start: chess.fen(),
-            status: 'ongoing',
-            time_control: '10+0'
-        } as any); // Cast to any to bypass strict DeepPartial check if needed, or ensure entity has these fields optional/nullable
-        await this.gameRepo.save(game);
-        // Store DB ID in memory map if needed? Or just use roomId as key.
-        // Ideally roomId maps to DB ID.
+        let dbGameId: number | undefined = undefined;
+        try {
+            const game = this.gameRepo.create({
+                white_user_id: whiteId ? parseInt(whiteId) : null,
+                black_user_id: blackId ? parseInt(blackId) : null,
+                fen_start: chess.fen(),
+                status: 'ongoing',
+                time_control: '10+0'
+            } as any);
+            const saved = await this.gameRepo.save(game);
+            dbGameId = (saved as any)?.id;
+        } catch (e) {
+            // Gracefully proceed if DB is not actively connected in dev mode
+        }
+
+        this.games.set(roomId, { chess, portals, clocks, lastMoveTime: Date.now(), royalLinkUsed, dbGameId });
 
         return this.getGameState(roomId)!;
     }
@@ -118,10 +123,18 @@ export class GameService {
     resignGame(roomId: string, resigningColor: 'white' | 'black'): GameState | null {
         const game = this.games.get(roomId);
         if (!game) return null;
+        const winner = resigningColor === 'white' ? 'black' : 'white';
         game.manualResult = {
             isGameOver: true,
-            winner: resigningColor === 'white' ? 'black' : 'white',
+            winner,
         };
+        if (game.dbGameId) {
+            this.gameRepo.update(game.dbGameId, {
+                status: 'completed',
+                winner,
+                fen_end: game.chess.fen(),
+            } as any).catch(() => {});
+        }
         return this.getGameState(roomId);
     }
 
@@ -132,6 +145,13 @@ export class GameService {
             isGameOver: true,
             winner: 'draw',
         };
+        if (game.dbGameId) {
+            this.gameRepo.update(game.dbGameId, {
+                status: 'completed',
+                winner: 'draw',
+                fen_end: game.chess.fen(),
+            } as any).catch(() => {});
+        }
         return this.getGameState(roomId);
     }
 
@@ -270,23 +290,34 @@ export class GameService {
         }
 
         // 7. Persistence
-        // Need game DB ID. For now assuming roomId is numeric or we look it up?
-        // Let's just log it for now or assume we have it.
-        // Ideally we store gameId in the map.
+        if (game.dbGameId) {
+            try {
+                const moveEntity = this.moveRepo.create({
+                    game_id: game.dbGameId,
+                    san: moveResult.san,
+                    from,
+                    to,
+                    final_to: finalDest,
+                    piece: moveResult.piece,
+                    captured: moveResult.captured,
+                    meta: { teleported, royalLinkUsed: royalLinkApplied }
+                } as any);
+                await this.moveRepo.save(moveEntity);
 
-        // const moveEntity = this.moveRepo.create({
-        //   game_id: parseInt(roomId), // Assuming roomId is the DB ID
-        //   san: moveResult.san,
-        //   from,
-        //   to,
-        //   final_to: finalDest,
-        //   piece: moveResult.piece,
-        //   captured: moveResult.captured,
-        //   meta: { teleported, royalLinkUsed: royalLinkApplied }
-        // });
-        // await this.moveRepo.save(moveEntity);
+                const currentState = this.getGameState(roomId);
+                if (currentState?.isGameOver) {
+                    await this.gameRepo.update(game.dbGameId, {
+                        status: 'completed',
+                        winner: currentState.winner,
+                        fen_end: tempChess.fen(),
+                    } as any);
+                }
+            } catch (e) {
+                // Gracefully log without interrupting realtime gameplay
+            }
+        }
 
-        // 7. Anti-Cheat Check
+        // 8. Anti-Cheat Check
         this.antiCheatService.checkMove(chess.fen(), moveResult.san);
         if (game.chess.isGameOver()) {
             this.antiCheatService.analyzeGame(roomId, game.chess.history());

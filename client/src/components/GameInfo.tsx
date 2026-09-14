@@ -16,6 +16,14 @@ interface GameInfoProps {
     mode?: string;
     aiDifficulty?: string;
     royalLinkUsed?: { white: boolean; black: boolean };
+    incomingDrawOffer?: boolean;
+    incomingRematchOffer?: boolean;
+    rematchPending?: boolean;
+    opponentDisconnected?: boolean;
+    onAcceptDraw?: () => void;
+    onDeclineDraw?: () => void;
+    onAcceptRematch?: () => void;
+    onDeclineRematch?: () => void;
     onResign?: () => void;
     onRequestDraw?: () => void;
     onFlipBoard?: () => void;
@@ -43,6 +51,14 @@ export const GameInfo: React.FC<GameInfoProps> = ({
     mode = 'game',
     aiDifficulty,
     royalLinkUsed,
+    incomingDrawOffer,
+    incomingRematchOffer,
+    rematchPending,
+    opponentDisconnected,
+    onAcceptDraw,
+    onDeclineDraw,
+    onAcceptRematch,
+    onDeclineRematch,
     onResign,
     onRequestDraw,
     onFlipBoard,
@@ -223,6 +239,79 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                     </div>
                 )}
 
+                {/* Opponent Disconnected Banner */}
+                {opponentDisconnected && !isGameOver && (
+                    <div
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            background: 'rgba(245, 158, 11, 0.2)',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            color: '#fde68a',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                        }}
+                    >
+                        <span>⚠️ Opponent disconnected. Waiting...</span>
+                    </div>
+                )}
+
+                {/* Incoming Draw Offer */}
+                {incomingDrawOffer && !isGameOver && (
+                    <div
+                        style={{
+                            padding: '10px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(2, 132, 199, 0.2)',
+                            border: '1px solid rgba(56, 189, 248, 0.5)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                        }}
+                    >
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#38bdf8' }}>
+                            🤝 Opponent offered a draw
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={onAcceptDraw}
+                                style={{
+                                    flex: 1,
+                                    padding: '6px 10px',
+                                    background: '#0284c7',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    color: '#ffffff',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Accept
+                            </button>
+                            <button
+                                onClick={onDeclineDraw}
+                                style={{
+                                    flex: 1,
+                                    padding: '6px 10px',
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '4px',
+                                    color: '#cbd5e1',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Decline
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Royal Link Status Banner */}
                 {!isGameOver && (
                     isMyRoyalLinkUsed ? (
@@ -365,29 +454,84 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                             </div>
                         </div>
 
+                        {/* Incoming Rematch Offer */}
+                        {incomingRematchOffer && (
+                            <div
+                                style={{
+                                    padding: '10px 12px',
+                                    borderRadius: '6px',
+                                    background: 'rgba(168, 85, 247, 0.2)',
+                                    border: '1px solid rgba(168, 85, 247, 0.5)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                }}
+                            >
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#e9d5ff' }}>
+                                    🔄 Opponent requested a rematch!
+                                </span>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={onAcceptRematch}
+                                        style={{
+                                            flex: 1,
+                                            padding: '6px 10px',
+                                            background: '#9333ea',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            color: '#ffffff',
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Accept
+                                    </button>
+                                    <button
+                                        onClick={onDeclineRematch}
+                                        style={{
+                                            flex: 1,
+                                            padding: '6px 10px',
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '4px',
+                                            color: '#cbd5e1',
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Decline
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Rematch & Back to Lobby Buttons */}
                         <div style={{ display: 'flex', gap: '8px' }}>
                             {onRematch && (
                                 <button
                                     onClick={onRematch}
+                                    disabled={rematchPending}
                                     style={{
                                         flex: 1,
                                         padding: '10px 12px',
-                                        background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                        background: rematchPending ? 'rgba(2, 132, 199, 0.4)' : 'linear-gradient(135deg, #0284c7, #0369a1)',
                                         border: '1px solid #38bdf8',
                                         borderRadius: '6px',
                                         color: '#ffffff',
                                         fontSize: '13px',
                                         fontWeight: 700,
-                                        cursor: 'pointer',
+                                        cursor: rematchPending ? 'not-allowed' : 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         gap: '6px',
+                                        opacity: rematchPending ? 0.7 : 1,
                                         boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
                                     }}
                                 >
-                                    <span>🔄</span> Rematch
+                                    <span>🔄</span> {rematchPending ? 'Waiting...' : 'Rematch'}
                                 </button>
                             )}
                             {onExitToLobby && (
