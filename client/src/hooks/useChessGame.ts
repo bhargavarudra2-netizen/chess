@@ -118,7 +118,8 @@ export const useChessGame = () => {
 
     // Initialize Socket.io connection once
     useEffect(() => {
-        const socket = io('http://localhost:3000');
+        const serverUrl = import.meta.env.VITE_SERVER_URL || `http://${window.location.hostname || 'localhost'}:3000`;
+        const socket = io(serverUrl);
         socketRef.current = socket;
 
         socket.on('queue_joined', () => {
