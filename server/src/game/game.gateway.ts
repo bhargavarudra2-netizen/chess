@@ -7,16 +7,19 @@ import {
     OnGatewayConnection,
     OnGatewayDisconnect,
 } from '@nestjs/websockets';
+import { OnModuleDestroy } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { GameService } from './game.service';
 import { MatchmakingService } from './matchmaking.service';
 
 @WebSocketGateway({ cors: true })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
     @WebSocketServer()
     server: Server;
 
     private roomPlayers = new Map<string, { white?: string; black?: string }>();
+    private finishedRooms = new Set<string>();
+    private clockInterval: NodeJS.Timeout | null = null;
 
     constructor(
         private readonly gameService: GameService,
@@ -24,7 +27,28 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     ) { }
 
     afterInit() {
-        // Gateway initialized
+        this.clockInterval = setInterval(() => {
+            for (const [roomId] of this.roomPlayers.entries()) {
+                if (this.finishedRooms.has(roomId)) continue;
+                const state = this.gameService.getGameState(roomId);
+                if (state && state.isGameOver && state.winner) {
+                    if (state.clocks.white === 0 || state.clocks.black === 0) {
+                        this.finishedRooms.add(roomId);
+                        this.server.to(roomId).emit('game_over', {
+                            reason: 'timeout',
+                            winner: state.winner,
+                            newState: state,
+                        });
+                    }
+                }
+            }
+        }, 1000);
+    }
+
+    onModuleDestroy() {
+        if (this.clockInterval) {
+            clearInterval(this.clockInterval);
+        }
     }
 
     handleConnection(client: Socket) {
@@ -191,6 +215,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const resigningColor = (players?.black === client.id) ? 'black' : 'white';
         const winner = resigningColor === 'white' ? 'black' : 'white';
         const newState = this.gameService.resignGame(payload.gameId, resigningColor);
+        this.finishedRooms.add(payload.gameId);
 
         this.server.to(payload.gameId).emit('game_over', {
             reason: 'resignation',
@@ -216,6 +241,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     ) {
         if (payload.accepted) {
             const newState = this.gameService.endGameWithDraw(payload.gameId);
+            this.finishedRooms.add(payload.gameId);
             this.server.to(payload.gameId).emit('game_over', {
                 reason: 'mutual_agreement',
                 winner: 'draw',
@@ -247,6 +273,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 players.white = players.black;
                 players.black = prevWhite;
             }
+            this.finishedRooms.delete(payload.gameId);
             const newState = await this.gameService.resetGameForRematch(payload.gameId);
             const p = this.roomPlayers.get(payload.gameId);
             if (p?.white) {
