@@ -16,6 +16,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer()
     server: Server;
 
+    private roomPlayers = new Map<string, { white?: string; black?: string }>();
+
     constructor(
         private readonly gameService: GameService,
         private readonly matchmakingService: MatchmakingService,
@@ -32,6 +34,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     handleDisconnect(client: Socket) {
         console.log(`Client disconnected: ${client.id}`);
         this.matchmakingService.removeFromQueue(client.id);
+
+        for (const [roomId, players] of this.roomPlayers.entries()) {
+            if (players.white === client.id || players.black === client.id) {
+                const state = this.gameService.getGameState(roomId);
+                if (state && !state.isGameOver) {
+                    const disconnectedColor = players.white === client.id ? 'white' : 'black';
+                    client.to(roomId).emit('opponent_disconnected', {
+                        socketId: client.id,
+                        color: disconnectedColor,
+                    });
+                }
+            }
+        }
     }
 
     @SubscribeMessage('join_queue')
@@ -45,6 +60,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (match) {
             const opponentSocket = this.server.sockets.sockets.get(match.opponentSocketId);
             const state = this.gameService.getGameState(match.gameId);
+
+            this.roomPlayers.set(match.gameId, { white: match.opponentSocketId, black: client.id });
 
             client.join(match.gameId);
             if (opponentSocket) {
@@ -78,6 +95,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     async handleCreatePrivateRoom(@ConnectedSocket() client: Socket) {
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
         const state = await this.gameService.createGame(roomId);
+        this.roomPlayers.set(roomId, { white: client.id });
         client.join(roomId);
         client.emit('room_created', {
             gameId: roomId,
@@ -100,12 +118,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             state = await this.gameService.createGame(gameId);
         }
 
-        // Determine color based on room occupants
-        const room = this.server.sockets.adapter.rooms.get(gameId);
-        const clients = room ? Array.from(room) : [];
-        let color = 'spectator';
-        if (clients.length === 1) color = 'white';
-        else if (clients.length === 2) color = 'black';
+        let players = this.roomPlayers.get(gameId);
+        if (!players) {
+            players = { white: client.id };
+            this.roomPlayers.set(gameId, players);
+        } else if (!players.black && players.white !== client.id) {
+            players.black = client.id;
+        }
+
+        const color = players.white === client.id ? 'white' : (players.black === client.id ? 'black' : 'spectator');
 
         client.emit('game_start', {
             gameId,
@@ -113,17 +134,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             initialState: state,
         });
 
-        // If second player joined, notify existing player that game can begin
-        if (clients.length === 2) {
+        // Notify existing players in room
+        const room = this.server.sockets.adapter.rooms.get(gameId);
+        const clients = room ? Array.from(room) : [];
+        if (clients.length >= 2) {
             this.server.to(gameId).emit('player_joined', {
                 gameId,
                 color,
-                totalPlayers: 2,
+                totalPlayers: clients.length,
             });
         }
     }
 
     @SubscribeMessage('make_move')
+    @SubscribeMessage('move')
     async handleMakeMove(
         @MessageBody() payload: { gameId: string; from: string; to: string; promotion?: string },
         @ConnectedSocket() client: Socket,
@@ -163,10 +187,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         @MessageBody() payload: { gameId: string },
         @ConnectedSocket() client: Socket,
     ) {
-        const room = this.server.sockets.adapter.rooms.get(payload.gameId);
-        const clients = room ? Array.from(room) : [];
-        const isFirstPlayer = clients[0] === client.id;
-        const resigningColor = isFirstPlayer ? 'white' : 'black';
+        const players = this.roomPlayers.get(payload.gameId);
+        const resigningColor = (players?.black === client.id) ? 'black' : 'white';
         const winner = resigningColor === 'white' ? 'black' : 'white';
         const newState = this.gameService.resignGame(payload.gameId, resigningColor);
 
@@ -179,10 +201,62 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('offer_draw')
+    @SubscribeMessage('request_draw')
     async handleOfferDraw(
         @MessageBody() payload: { gameId: string },
         @ConnectedSocket() client: Socket,
     ) {
         client.to(payload.gameId).emit('draw_offered', { fromSocketId: client.id });
+    }
+
+    @SubscribeMessage('respond_draw')
+    async handleRespondDraw(
+        @MessageBody() payload: { gameId: string; accepted: boolean },
+        @ConnectedSocket() client: Socket,
+    ) {
+        if (payload.accepted) {
+            const newState = this.gameService.endGameWithDraw(payload.gameId);
+            this.server.to(payload.gameId).emit('game_over', {
+                reason: 'mutual_agreement',
+                winner: 'draw',
+                newState,
+            });
+        } else {
+            client.to(payload.gameId).emit('draw_declined');
+        }
+    }
+
+    @SubscribeMessage('request_rematch')
+    async handleRequestRematch(
+        @MessageBody() payload: { gameId: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        client.to(payload.gameId).emit('rematch_offered', { fromSocketId: client.id });
+    }
+
+    @SubscribeMessage('respond_rematch')
+    async handleRespondRematch(
+        @MessageBody() payload: { gameId: string; accepted: boolean },
+        @ConnectedSocket() client: Socket,
+    ) {
+        if (payload.accepted) {
+            const players = this.roomPlayers.get(payload.gameId);
+            if (players) {
+                // Swap colors for rematch
+                const prevWhite = players.white;
+                players.white = players.black;
+                players.black = prevWhite;
+            }
+            const newState = await this.gameService.resetGameForRematch(payload.gameId);
+            const p = this.roomPlayers.get(payload.gameId);
+            if (p?.white) {
+                this.server.to(p.white).emit('game_start', { gameId: payload.gameId, color: 'white', initialState: newState });
+            }
+            if (p?.black) {
+                this.server.to(p.black).emit('game_start', { gameId: payload.gameId, color: 'black', initialState: newState });
+            }
+        } else {
+            client.to(payload.gameId).emit('rematch_declined');
+        }
     }
 }

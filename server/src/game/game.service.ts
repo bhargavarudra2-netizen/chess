@@ -125,6 +125,37 @@ export class GameService {
         return this.getGameState(roomId);
     }
 
+    endGameWithDraw(roomId: string): GameState | null {
+        const game = this.games.get(roomId);
+        if (!game) return null;
+        game.manualResult = {
+            isGameOver: true,
+            winner: 'draw',
+        };
+        return this.getGameState(roomId);
+    }
+
+    async resetGameForRematch(roomId: string): Promise<GameState | null> {
+        const game = this.games.get(roomId);
+        if (!game) return null;
+
+        const chess = new Chess();
+        const portals = this.portalService.generatePortals();
+        const clocks = { white: 600, black: 600 };
+        const royalLinkUsed = { white: false, black: false };
+
+        this.games.set(roomId, {
+            chess,
+            portals,
+            clocks,
+            lastMoveTime: Date.now(),
+            royalLinkUsed,
+            manualResult: undefined,
+        });
+
+        return this.getGameState(roomId);
+    }
+
     async processMove(roomId: string, from: string, to: string, promotion: string = 'q', portalTargetId?: string, placedSquare?: string) {
         const game = this.games.get(roomId);
         if (!game) throw new Error('Game not found');

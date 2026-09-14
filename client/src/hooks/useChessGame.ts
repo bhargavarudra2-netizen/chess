@@ -58,6 +58,12 @@ export const useChessGame = () => {
     const [royalLinkUsed, setRoyalLinkUsed] = useState<{ white: boolean; black: boolean }>({ white: false, black: false });
     const [warning, setWarning] = useState<string | null>(null);
 
+    // Online Multiplayer interaction states
+    const [incomingDrawOffer, setIncomingDrawOffer] = useState(false);
+    const [incomingRematchOffer, setIncomingRematchOffer] = useState(false);
+    const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+    const [rematchPending, setRematchPending] = useState(false);
+
     const socketRef = useRef<Socket | null>(null);
     const practiceChessRef = useRef<any>(null);
 
@@ -130,6 +136,11 @@ export const useChessGame = () => {
             setPlayerColor(data.color);
             setGameState(data.initialState);
             setRoyalLinkUsed(data.initialState.royalLinkUsed || { white: false, black: false });
+            setIncomingDrawOffer(false);
+            setIncomingRematchOffer(false);
+            setRematchPending(false);
+            setOpponentDisconnected(false);
+            setTimerConfigSeconds(600);
             setMode('game');
             if (data.initialState.clocks) {
                 setClocks(data.initialState.clocks);
@@ -142,12 +153,18 @@ export const useChessGame = () => {
             setPlayerColor('white');
             setGameState(data.initialState);
             setRoyalLinkUsed(data.initialState.royalLinkUsed || { white: false, black: false });
+            setIncomingDrawOffer(false);
+            setIncomingRematchOffer(false);
+            setRematchPending(false);
+            setOpponentDisconnected(false);
+            setTimerConfigSeconds(600);
             if (data.initialState.clocks) {
                 setClocks(data.initialState.clocks);
             }
         });
 
         socket.on('player_joined', (data: { gameId: string; color: string; totalPlayers: number }) => {
+            setOpponentDisconnected(false);
             if (data.totalPlayers >= 2) {
                 setPendingRoomCode(null);
                 setMode('game');
@@ -160,6 +177,11 @@ export const useChessGame = () => {
             setPlayerColor(data.color);
             setGameState(data.initialState);
             setRoyalLinkUsed(data.initialState.royalLinkUsed || { white: false, black: false });
+            setIncomingDrawOffer(false);
+            setIncomingRematchOffer(false);
+            setRematchPending(false);
+            setOpponentDisconnected(false);
+            setTimerConfigSeconds(600);
             setMode('game');
             if (data.initialState.clocks) {
                 setClocks(data.initialState.clocks);
@@ -177,6 +199,29 @@ export const useChessGame = () => {
 
         socket.on('opponent_move', (data: MoveResponsePayload) => {
             handleMoveUpdate(data);
+        });
+
+        socket.on('draw_offered', () => {
+            setIncomingDrawOffer(true);
+        });
+
+        socket.on('draw_declined', () => {
+            setError('Opponent declined the draw offer');
+            setTimeout(() => setError(null), 3500);
+        });
+
+        socket.on('rematch_offered', () => {
+            setIncomingRematchOffer(true);
+        });
+
+        socket.on('rematch_declined', () => {
+            setRematchPending(false);
+            setError('Opponent declined the rematch request');
+            setTimeout(() => setError(null), 3500);
+        });
+
+        socket.on('opponent_disconnected', () => {
+            setOpponentDisconnected(true);
         });
 
         socket.on('game_over', (data: { reason: string; winner: 'white' | 'black' | 'draw'; newState?: GameState }) => {
@@ -492,6 +537,7 @@ export const useChessGame = () => {
         } else if (mode === 'practice') {
             startPractice();
         } else if (socketRef.current && roomId) {
+            setRematchPending(true);
             socketRef.current.emit('request_rematch', { gameId: roomId });
         }
     }, [mode, startVsAi, startPassAndPlay, startPractice, roomId]);
@@ -507,6 +553,10 @@ export const useChessGame = () => {
         setIsSearching(false);
         setPendingRoomCode(null);
         practiceChessRef.current = null;
+        setIncomingDrawOffer(false);
+        setIncomingRematchOffer(false);
+        setRematchPending(false);
+        setOpponentDisconnected(false);
     }, []);
 
     const makeMove = useCallback((from: string, to: string) => {
@@ -516,7 +566,7 @@ export const useChessGame = () => {
 
         if (!socketRef.current || !roomId) return;
         setError(null);
-        socketRef.current.emit('move', {
+        socketRef.current.emit('make_move', {
             gameId: roomId,
             from,
             to,
@@ -644,8 +694,32 @@ export const useChessGame = () => {
             return;
         }
         if (!socketRef.current || !roomId) return;
-        socketRef.current.emit('request_draw', { gameId: roomId });
+        socketRef.current.emit('offer_draw', { gameId: roomId });
     }, [mode, roomId]);
+
+    const acceptDraw = useCallback(() => {
+        if (!socketRef.current || !roomId) return;
+        socketRef.current.emit('respond_draw', { gameId: roomId, accepted: true });
+        setIncomingDrawOffer(false);
+    }, [roomId]);
+
+    const declineDraw = useCallback(() => {
+        if (!socketRef.current || !roomId) return;
+        socketRef.current.emit('respond_draw', { gameId: roomId, accepted: false });
+        setIncomingDrawOffer(false);
+    }, [roomId]);
+
+    const acceptRematch = useCallback(() => {
+        if (!socketRef.current || !roomId) return;
+        socketRef.current.emit('respond_rematch', { gameId: roomId, accepted: true });
+        setIncomingRematchOffer(false);
+    }, [roomId]);
+
+    const declineRematch = useCallback(() => {
+        if (!socketRef.current || !roomId) return;
+        socketRef.current.emit('respond_rematch', { gameId: roomId, accepted: false });
+        setIncomingRematchOffer(false);
+    }, [roomId]);
 
     return {
         mode,
@@ -663,6 +737,10 @@ export const useChessGame = () => {
         royalLinkUsed,
         warning,
         setWarning,
+        incomingDrawOffer,
+        incomingRematchOffer,
+        opponentDisconnected,
+        rematchPending,
         joinQueue,
         leaveQueue,
         createPrivateRoom,
@@ -671,6 +749,10 @@ export const useChessGame = () => {
         startVsAi,
         startPassAndPlay,
         rematch,
+        acceptDraw,
+        declineDraw,
+        acceptRematch,
+        declineRematch,
         leaveToLobby,
         makeMove,
         requestRoyalLink,
