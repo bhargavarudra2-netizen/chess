@@ -14,11 +14,21 @@ start "Portal Chess Frontend" cmd /k "cd client && npm run dev"
 
 timeout /t 3 /nobreak >nul
 
-echo [3/3] Launching Cloudflare Public Tunnel...
+echo [3/3] Choose your online tunnel provider:
+echo   [1] Cloudflare Tunnel (Recommended - Direct HTTPS)
+echo   [2] Localtunnel (Backup if Cloudflare times out on your ISP)
 echo.
-echo Look for the public https://*.trycloudflare.com link below!
-echo Share that link with your friend so they can join and play.
-echo ===================================================
-echo.
-.\cloudflared.exe tunnel --url http://localhost:5173
+set /p tunnelChoice="Choose [1 or 2] (Default is 1): "
+
+if "%tunnelChoice%"=="2" (
+    echo.
+    echo Starting Localtunnel on port 5173...
+    echo Your friend can enter password/IP if asked.
+    npx --yes localtunnel --port 5173
+) else (
+    echo.
+    echo Starting Cloudflare Tunnel on port 5173...
+    echo If it times out due to ISP limits, close and choose option [2].
+    .\cloudflared.exe tunnel --url http://localhost:5173
+)
 pause
