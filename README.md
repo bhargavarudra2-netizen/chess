@@ -230,7 +230,19 @@ npm run dev
 ```
 The client will start on `http://localhost:5173`.
 
-#### 3. Run Unit Tests
+#### 3. Playing Online with a Remote Friend (Public Internet)
+
+To play with a friend anywhere in the world without port-forwarding:
+
+1. Double-click `play-online.bat` (or run `.\cloudflared.exe tunnel --url http://localhost:5173` while frontend and backend are running).
+2. Copy the generated public HTTPS URL (e.g., `https://*.trycloudflare.com`).
+3. Send this link to your friend.
+4. One player clicks **"Create Room"** in the Lobby to generate a 6-character room code, and the other enters the code in **"Join Room"** (or both click **"Quick Match"**).
+5. Both players instantly connect via real-time WebSocket over the secure tunnel!
+
+---
+
+#### 4. Run Unit Tests
 ```bash
 cd server
 npm test

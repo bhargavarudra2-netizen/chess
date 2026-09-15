@@ -42,5 +42,14 @@ This workflow describes how to run the Portal Chess application (Server and Clie
     npm run dev
     ```
 
-5.  **Access the Application**
-    Open your browser and navigate to the URL shown in the Client terminal (usually `http://localhost:5173`).
+5.  **Access the Application Locally**
+    Open your browser and navigate to `http://localhost:5173`.
+
+6.  **Play with a Friend Online (Remote / Public Internet)**
+    To share a secure public link with a friend anywhere in the world:
+    - Double click `play-online.bat`, or run:
+      ```powershell
+      .\cloudflared.exe tunnel --url http://localhost:5173
+      ```
+    - Copy the generated `https://*.trycloudflare.com` link and send it to your friend!
+

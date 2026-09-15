@@ -18,7 +18,7 @@ export interface GameHistoryItem {
     created_at: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || `http://${window.location.hostname || 'localhost'}:3000`;
+const API_BASE = import.meta.env.VITE_API_BASE || window.location.origin;
 
 export const useAuth = () => {
     const [user, setUser] = useState<AuthUser | null>(null);
