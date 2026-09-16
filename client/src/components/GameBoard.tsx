@@ -9,13 +9,14 @@ import 'chessground/assets/chessground.cburnett.css';
 import type { Portal, LastMoveDetails } from '../types';
 import PortalOverlay from './PortalOverlay';
 import RoyalLinkModal from './RoyalLinkModal';
+import PromotionModal from './PromotionModal';
 import { playCheckSound } from '../utils/soundEffects';
 
 interface GameBoardProps {
     fen: string;
     orientation: 'white' | 'black';
     portals: Portal[];
-    onMove: (from: string, to: string) => void;
+    onMove: (from: string, to: string, promotion?: string) => void;
     turn: 'white' | 'black';
     lastMove?: LastMoveDetails;
     onRequestRoyalLink?: (from: string, to: string, targetPortalId: string, placedSquare?: string) => void;
@@ -46,6 +47,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     const [api, setApi] = useState<Api | null>(null);
     const chessRef = useRef<any>(null);
     const [pendingRoyalMove, setPendingRoyalMove] = useState<{ from: string; to: string } | null>(null);
+    const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string; color: 'white' | 'black' } | null>(null);
 
     const isMultiMovable = isPractice || mode === 'pass_and_play';
     const activeMovableColor = isMultiMovable ? turn : orientation;
@@ -137,8 +139,18 @@ const GameBoard: React.FC<GameBoardProps> = ({
                             const currentColor = activeMovableColorRef.current;
                             const hasUsedRoyalLink = royalLinkUsedRef.current ? royalLinkUsedRef.current[currentColor] : false;
 
+                            const isPromotion = Boolean(matchingMove?.promotion) || (
+                                matchingMove?.piece === 'p' && (dest[1] === '8' || dest[1] === '1')
+                            );
+
                             if (isCastling && !hasUsedRoyalLink && onRequestRoyalLinkRef.current && portalsRef.current.length > 0) {
                                 setPendingRoyalMove({ from: orig, to: dest });
+                            } else if (isPromotion) {
+                                setPendingPromotion({
+                                    from: orig,
+                                    to: dest,
+                                    color: (matchingMove?.color === 'w' || currentColor === 'white') ? 'white' : 'black',
+                                });
                             } else {
                                 onMoveRef.current(orig, dest);
                             }
@@ -281,6 +293,23 @@ const GameBoard: React.FC<GameBoardProps> = ({
                         }
                         onMove(pendingRoyalMove.from, pendingRoyalMove.to);
                         setPendingRoyalMove(null);
+                    }}
+                />
+            )}
+
+            {/* Pawn Promotion Modal */}
+            {pendingPromotion && (
+                <PromotionModal
+                    color={pendingPromotion.color}
+                    onSelect={(chosenPiece) => {
+                        onMove(pendingPromotion.from, pendingPromotion.to, chosenPiece);
+                        setPendingPromotion(null);
+                    }}
+                    onCancel={() => {
+                        if (api) {
+                            api.set({ fen });
+                        }
+                        setPendingPromotion(null);
                     }}
                 />
             )}

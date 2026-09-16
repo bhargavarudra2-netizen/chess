@@ -290,12 +290,13 @@ export const useChessGame = () => {
         from: string,
         to: string,
         currentMode: 'practice' | 'vs_ai' | 'pass_and_play',
-        isAiMover = false
+        isAiMover = false,
+        promotion: string = 'q'
     ) => {
         const chess = practiceChessRef.current || new Chess(gameState?.fen);
         if (!chess) return false;
 
-        const moveRes = chess.move({ from, to, promotion: 'q' });
+        const moveRes = chess.move({ from, to, promotion });
         if (!moveRes) {
             setError('Illegal move');
             return false;
@@ -562,9 +563,9 @@ export const useChessGame = () => {
         setOpponentDisconnected(false);
     }, []);
 
-    const makeMove = useCallback((from: string, to: string) => {
+    const makeMove = useCallback((from: string, to: string, promotion: string = 'q') => {
         if (mode === 'practice' || mode === 'vs_ai' || mode === 'pass_and_play') {
-            return executeOfflineMove(from, to, mode);
+            return executeOfflineMove(from, to, mode, false, promotion);
         }
 
         if (!socketRef.current || !roomId) return;
@@ -573,7 +574,7 @@ export const useChessGame = () => {
             gameId: roomId,
             from,
             to,
-            promotion: 'q',
+            promotion,
         });
     }, [mode, roomId, executeOfflineMove]);
 
