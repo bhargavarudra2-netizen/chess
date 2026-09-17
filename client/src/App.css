@@ -63,14 +63,34 @@
   flex-wrap: wrap;
 }
 
-/* Chessboard wrapper styling */
+/* Chessboard wrapper styling - fluid and responsive */
 .game-board-container {
   position: relative;
-  width: 600px;
-  height: 600px;
-  border-radius: 10px;
+  width: min(600px, 94vw);
+  height: min(600px, 94vw);
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vw - 16px);
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
   background: #1e1e1e;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  margin: 0 auto;
+}
+
+/* Ensure Chessground container scales cleanly with touch optimization */
+.game-board-container cg-container,
+.game-board-container cg-board {
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.game-board-container cg-board square {
+  touch-action: none;
 }
 
 /* Portal animations */
@@ -233,4 +253,73 @@ cg-board square.check {
   background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.85) 0%, rgba(220, 38, 38, 0.5) 45%, rgba(185, 28, 28, 0) 70%) !important;
   animation: pulseCheck 1.2s ease-in-out infinite !important;
 }
+
+/* ==========================================================================
+   Responsive Mobile Media Queries
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 10px 14px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .brand-title {
+    font-size: 17px;
+  }
+
+  .portal-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .app-main {
+    padding: 14px 8px;
+    gap: 16px;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .game-board-container {
+    width: min(540px, 94vw);
+    height: min(540px, 94vw);
+  }
+
+  .game-info-container {
+    width: 100% !important;
+    max-width: min(540px, 94vw);
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 8px 10px;
+  }
+
+  .brand-title {
+    font-size: 15px;
+  }
+
+  .portal-tag {
+    display: none;
+  }
+
+  .app-main {
+    padding: 8px 4px;
+    gap: 12px;
+  }
+
+  .game-board-container {
+    width: min(440px, 96vw);
+    height: min(440px, 96vw);
+    border-radius: 8px;
+  }
+
+  .game-info-container {
+    width: 100% !important;
+    max-width: min(440px, 96vw);
+  }
+}
+
 

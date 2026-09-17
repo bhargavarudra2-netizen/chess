@@ -67,16 +67,18 @@ export const OfflineSetupModal: React.FC<OfflineSetupModalProps> = ({
                 style={{
                     width: '100%',
                     maxWidth: '460px',
+                    maxHeight: '92vh',
+                    overflowY: 'auto',
                     borderRadius: '16px',
                     background: 'radial-gradient(ellipse at 50% 0%, rgba(6, 182, 212, 0.18) 0%, rgba(15, 23, 42, 0.95) 85%)',
                     border: '1px solid rgba(6, 182, 212, 0.35)',
                     boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(6, 182, 212, 0.2)',
-                    padding: '28px',
+                    padding: '24px 20px',
                     color: '#f8fafc',
                     position: 'relative',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '20px',
+                    gap: '18px',
                 }}
                 onClick={e => e.stopPropagation()}
             >

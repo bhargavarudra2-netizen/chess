@@ -80,11 +80,13 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                 style={{
                     width: '100%',
                     maxWidth: '480px',
+                    maxHeight: '92vh',
+                    overflowY: 'auto',
                     borderRadius: '16px',
                     background: 'radial-gradient(ellipse at 50% 0%, rgba(255, 215, 0, 0.18) 0%, rgba(15, 23, 42, 0.98) 75%)',
                     border: '1.5px solid rgba(255, 215, 0, 0.6)',
                     boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(255, 215, 0, 0.3)',
-                    padding: '22px',
+                    padding: '20px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '14px',
@@ -109,7 +111,7 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                     >
                         👑
                     </div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '19px', fontWeight: 800, color: '#fef08a' }}>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#fef08a' }}>
                         👑 Place Royal Portal (Castling)
                     </h3>
                     <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
@@ -120,7 +122,7 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
 
                 {/* 8x8 Mini Chessboard Placement Selector */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '288px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '288px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
                         <span>Board Placement:</span>
                         <span style={{ color: '#ffd700', fontWeight: 700 }}>Square: {selectedSquare.toUpperCase()}</span>
                     </div>
@@ -128,8 +130,10 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                     <div
                         style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(8, 36px)',
-                            gridTemplateRows: 'repeat(8, 36px)',
+                            gridTemplateColumns: 'repeat(8, 1fr)',
+                            width: '100%',
+                            maxWidth: '288px',
+                            aspectRatio: '1',
                             border: '2px solid rgba(255, 215, 0, 0.4)',
                             borderRadius: '8px',
                             overflow: 'hidden',
@@ -162,8 +166,8 @@ export const RoyalLinkModal: React.FC<RoyalLinkModalProps> = ({
                                             }
                                         }}
                                         style={{
-                                            width: '36px',
-                                            height: '36px',
+                                            width: '100%',
+                                            aspectRatio: '1',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',

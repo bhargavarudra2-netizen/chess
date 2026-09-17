@@ -128,11 +128,13 @@ export const GameInfo: React.FC<GameInfoProps> = ({
 
     return (
         <div
+            className="game-info-container"
             style={{
-                width: '320px',
+                width: '100%',
+                maxWidth: '360px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '16px',
+                gap: '14px',
             }}
         >
             {/* Top Opponent Clock */}

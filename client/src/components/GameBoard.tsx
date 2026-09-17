@@ -26,6 +26,7 @@ interface GameBoardProps {
     isPractice?: boolean;
     isAiThinking?: boolean;
     mode?: string;
+    playerColor?: 'white' | 'black' | 'spectator';
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -42,6 +43,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     isPractice,
     isAiThinking,
     mode,
+    playerColor,
 }) => {
     const boardRef = useRef<HTMLDivElement>(null);
     const [api, setApi] = useState<Api | null>(null);
@@ -50,7 +52,13 @@ const GameBoard: React.FC<GameBoardProps> = ({
     const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string; color: 'white' | 'black' } | null>(null);
 
     const isMultiMovable = isPractice || mode === 'pass_and_play';
-    const activeMovableColor = isMultiMovable ? turn : orientation;
+    const myAssignedColor: 'white' | 'black' | undefined = (playerColor && playerColor !== 'spectator')
+        ? playerColor
+        : (playerColor === 'spectator' ? undefined : orientation);
+    const isMyTurn = myAssignedColor ? turn === myAssignedColor : false;
+    const activeMovableColor: 'white' | 'black' | undefined = isMultiMovable
+        ? turn
+        : (isMyTurn && myAssignedColor ? myAssignedColor : undefined);
 
     // Stable refs to prevent stale closures in Chessground event handlers
     const royalLinkUsedRef = useRef(royalLinkUsed);
@@ -125,7 +133,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                             );
 
                             const currentColor = activeMovableColorRef.current;
-                            const hasUsedRoyalLink = royalLinkUsedRef.current ? royalLinkUsedRef.current[currentColor] : false;
+                            const hasUsedRoyalLink = (currentColor && royalLinkUsedRef.current) ? royalLinkUsedRef.current[currentColor] : false;
 
                             const isPromotion = Boolean(matchingMove?.promotion) || (
                                 matchingMove?.piece === 'p' && (dest[1] === '8' || dest[1] === '1')
@@ -148,6 +156,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 draggable: {
                     showGhost: true,
                 },
+                selectable: {
+                    enabled: true,
+                },
                 highlight: {
                     lastMove: !inCheck,
                     check: true,
@@ -158,10 +169,27 @@ const GameBoard: React.FC<GameBoardProps> = ({
         }
     }, [boardRef, fen, orientation, api]);
 
+    // ResizeObserver: Keep Chessground board dimensions in sync across mobile screen orientation changes
+    useEffect(() => {
+        if (!boardRef.current || !api) return;
+        let animationFrameId: number;
+        const observer = new ResizeObserver(() => {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(() => {
+                api.redrawAll();
+            });
+        });
+        observer.observe(boardRef.current);
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            observer.disconnect();
+        };
+    }, [api]);
+
     // Helper to get valid destinations from chess.js
-    const getDests = (chess: any, color: 'white' | 'black') => {
+    const getDests = (chess: any, color?: 'white' | 'black') => {
         const dests = new Map();
-        if (!chess || chess.turn() !== color[0]) return dests;
+        if (!chess || !color || chess.turn() !== color[0]) return dests;
 
         chess.moves({ verbose: true }).forEach((m: any) => {
             if (!dests.has(m.from)) dests.set(m.from, []);
@@ -175,14 +203,12 @@ const GameBoard: React.FC<GameBoardProps> = ({
             className="game-board-container"
             style={{
                 position: 'relative',
-                width: '600px',
-                height: '600px',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 overflow: 'hidden',
                 boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1)',
             }}
         >
-            <div ref={boardRef} style={{ width: '100%', height: '100%' }} />
+            <div ref={boardRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
             <PortalOverlay portals={portals} orientation={orientation} lastMove={lastMove} />
 
             {/* Warning Banner (e.g. King cannot teleport into check) */}

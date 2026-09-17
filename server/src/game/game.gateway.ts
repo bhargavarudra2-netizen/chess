@@ -177,6 +177,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         @ConnectedSocket() client: Socket,
     ) {
         try {
+            const players = this.roomPlayers.get(payload.gameId);
+            if (players) {
+                const isWhite = players.white === client.id;
+                const isBlack = players.black === client.id;
+                if (!isWhite && !isBlack) {
+                    client.emit('move_result', { ok: false, error: 'You are a spectator and cannot move pieces.' });
+                    return;
+                }
+                const state = this.gameService.getGameState(payload.gameId);
+                if (state) {
+                    if ((state.turn === 'w' && !isWhite) || (state.turn === 'b' && !isBlack)) {
+                        client.emit('move_result', { ok: false, error: 'Not your turn!' });
+                        return;
+                    }
+                }
+            }
+
             const result = await this.gameService.processMove(payload.gameId, payload.from, payload.to, payload.promotion);
             client.emit('move_result', { ok: true, ...result });
             client.to(payload.gameId).emit('opponent_move', result);
@@ -191,6 +208,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         @ConnectedSocket() client: Socket,
     ) {
         try {
+            const players = this.roomPlayers.get(payload.gameId);
+            if (players) {
+                const isWhite = players.white === client.id;
+                const isBlack = players.black === client.id;
+                if (!isWhite && !isBlack) {
+                    client.emit('move_result', { ok: false, error: 'You are a spectator and cannot move pieces.' });
+                    return;
+                }
+                const state = this.gameService.getGameState(payload.gameId);
+                if (state) {
+                    if ((state.turn === 'w' && !isWhite) || (state.turn === 'b' && !isBlack)) {
+                        client.emit('move_result', { ok: false, error: 'Not your turn!' });
+                        return;
+                    }
+                }
+            }
+
             const result = await this.gameService.processMove(
                 payload.gameId,
                 payload.from,

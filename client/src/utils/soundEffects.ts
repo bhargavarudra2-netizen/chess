@@ -12,10 +12,24 @@ const getAudioContext = (): AudioContext | null => {
         }
     }
     if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        audioCtx.resume().catch(() => {});
     }
     return audioCtx;
 };
+
+// Global mobile user-gesture unlock listener
+if (typeof window !== 'undefined') {
+    const unlockAudio = () => {
+        const ctx = getAudioContext();
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+        window.removeEventListener('pointerdown', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+    };
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+}
 
 export const setSoundEnabled = (enabled: boolean) => {
     soundEnabled = enabled;

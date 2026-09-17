@@ -56,11 +56,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 style={{
                     width: '100%',
                     maxWidth: '400px',
+                    maxHeight: '92vh',
+                    overflowY: 'auto',
                     borderRadius: '16px',
                     background: 'radial-gradient(ellipse at 50% 0%, rgba(6, 182, 212, 0.15) 0%, rgba(15, 23, 42, 0.95) 85%)',
                     border: '1px solid rgba(6, 182, 212, 0.3)',
-                    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 24px rgba(6, 182, 212, 0.2)',
-                    padding: '28px',
+                    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(6, 182, 212, 0.15)',
+                    padding: '24px 20px',
                     color: '#f8fafc',
                     position: 'relative',
                 }}

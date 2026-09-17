@@ -139,7 +139,7 @@ function App() {
           <span className="portal-tag">Quantum Arena</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {mode !== 'lobby' && (
             <>
               <span
@@ -300,6 +300,7 @@ function App() {
               isPractice={mode === 'practice'}
               isAiThinking={isAiThinking}
               mode={mode}
+              playerColor={playerColor}
             />
           </div>
 

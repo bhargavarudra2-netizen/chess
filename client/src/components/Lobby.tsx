@@ -49,14 +49,15 @@ export const Lobby: React.FC<LobbyProps> = ({
 
     return (
         <div
+            className="lobby-container"
             style={{
                 width: '100%',
                 maxWidth: '980px',
                 margin: '0 auto',
-                padding: '24px',
+                padding: '20px 12px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '28px',
+                gap: '24px',
             }}
         >
             {/* Hero Banner */}
@@ -204,8 +205,8 @@ export const Lobby: React.FC<LobbyProps> = ({
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                        gap: '18px',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                        gap: '16px',
                     }}
                 >
                     {/* Offline Option 1: Play vs Computer (AI) */}
@@ -370,8 +371,8 @@ export const Lobby: React.FC<LobbyProps> = ({
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                        gap: '18px',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                        gap: '16px',
                     }}
                 >
                     {/* 1. Quick Match */}
