@@ -250,5 +250,15 @@ npm test
 
 ---
 
+## 🌐 Deploying Online for Free
+
+To host Portal Chess on a live public website for free with automatic GitHub deployments:
+- **Backend**: Deploy on **[Render](https://render.com)** (Free Node.js & WebSocket Service)
+- **Frontend**: Deploy on **[Vercel](https://vercel.com)** (Free Global Edge CDN)
+
+👉 Follow the full step-by-step walkthrough in [**DEPLOYMENT.md**](DEPLOYMENT.md).
+
+---
+
 ## 📜 License
 This project is open-source and available under the [MIT License](LICENSE).

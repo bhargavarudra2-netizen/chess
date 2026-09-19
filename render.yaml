@@ -1,0 +1,19 @@
+services:
+  # -------------------------------------------------------------
+  # Portal Chess Backend Web Service (NestJS + WebSockets)
+  # Free tier on Render: Node.js runtime, native WebSocket support
+  # -------------------------------------------------------------
+  - type: web
+    name: portal-chess-server
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
