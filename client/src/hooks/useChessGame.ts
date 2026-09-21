@@ -24,6 +24,9 @@ interface MoveResponsePayload {
     teleported?: boolean;
     finalDest?: { r: number; c: number };
     move?: { from: string; to: string; promotion?: string };
+    isGameOver?: boolean;
+    winner?: 'white' | 'black' | 'draw' | null;
+    reason?: string;
 }
 
 // Safe compatibility helpers for chess.js version variants
@@ -112,8 +115,13 @@ export const useChessGame = () => {
                 portals: data.portals || prev.portals,
                 history: updatedHistory,
                 lastMove,
+                ...(data.isGameOver ? { isGameOver: true, winner: data.winner ?? null, gameOverReason: data.reason } : {}),
             };
         });
+
+        if (data.isGameOver) {
+            playGameOverSound();
+        }
     }, [triggerMoveAudio]);
 
     // Initialize Socket.io connection once
@@ -233,7 +241,8 @@ export const useChessGame = () => {
                 ...prev,
                 isGameOver: true,
                 winner: data.winner,
-                ...(data.newState || {}),
+                gameOverReason: data.reason,
+                ...(data.newState ? { ...data.newState, gameOverReason: data.reason } : {}),
             } : null);
         });
 
@@ -267,14 +276,14 @@ export const useChessGame = () => {
                     const nextWhite = Math.max(0, prev.white - 1);
                     if (nextWhite === 0 && !gameState.isGameOver) {
                         playGameOverSound();
-                        setGameState(g => g ? { ...g, isGameOver: true, winner: 'black' } : null);
+                        setGameState(g => g ? { ...g, isGameOver: true, winner: 'black', gameOverReason: 'timeout' } : null);
                     }
                     return { ...prev, white: nextWhite };
                 } else {
                     const nextBlack = Math.max(0, prev.black - 1);
                     if (nextBlack === 0 && !gameState.isGameOver) {
                         playGameOverSound();
-                        setGameState(g => g ? { ...g, isGameOver: true, winner: 'white' } : null);
+                        setGameState(g => g ? { ...g, isGameOver: true, winner: 'white', gameOverReason: 'timeout' } : null);
                     }
                     return { ...prev, black: nextBlack };
                 }
@@ -370,9 +379,14 @@ export const useChessGame = () => {
         setError(null);
 
         const isOver = checkGameOver(chess);
+        const isCheckmate = checkCheckmate(chess);
+        const isStalemate = !isCheckmate && isOver && (typeof chess.isStalemate === 'function' ? chess.isStalemate() : (chess as any).in_stalemate?.());
         const winResult = isOver
-            ? (checkCheckmate(chess) ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null))
+            ? (isCheckmate ? (chess.turn() === 'w' ? 'black' : 'white') : (checkDraw(chess) ? 'draw' : null))
             : null;
+        const gameOverReason = isOver
+            ? (isCheckmate ? 'checkmate' : isStalemate ? 'stalemate' : 'draw')
+            : undefined;
 
         if (isOver) {
             playGameOverSound();
@@ -389,6 +403,7 @@ export const useChessGame = () => {
                 history: [...prev.history, moveRes.san],
                 isGameOver: isOver,
                 winner: winResult,
+                gameOverReason,
                 lastMove: {
                     from,
                     to,

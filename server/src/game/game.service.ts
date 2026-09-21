@@ -15,6 +15,7 @@ export interface GameState {
     history: any[];
     isGameOver: boolean;
     winner: 'white' | 'black' | 'draw' | null;
+    gameOverReason?: 'checkmate' | 'stalemate' | 'timeout' | 'resignation' | 'draw' | 'mutual_agreement' | string;
     lastMove?: any;
     clocks: { white: number; black: number };
     royalLinkUsed?: { white: boolean; black: boolean };
@@ -93,6 +94,10 @@ export class GameService {
                 }
             }
         }
+        if (isTimedOut && !game.manualResult && timeoutWinner) {
+            game.manualResult = { isGameOver: true, winner: timeoutWinner };
+            game.clocks = currentClocks;
+        }
 
         const isGameOver = game.manualResult
             ? game.manualResult.isGameOver
@@ -108,6 +113,23 @@ export class GameService {
                         ? 'draw'
                         : null));
 
+        let gameOverReason: string | undefined = undefined;
+        if (isGameOver) {
+            if (isTimedOut || (game.manualResult && (currentClocks.white === 0 || currentClocks.black === 0))) {
+                gameOverReason = 'timeout';
+            } else if (game.manualResult && game.manualResult.winner && game.manualResult.winner !== 'draw') {
+                gameOverReason = 'resignation';
+            } else if (game.manualResult && game.manualResult.winner === 'draw') {
+                gameOverReason = 'mutual_agreement';
+            } else if (game.chess.isCheckmate()) {
+                gameOverReason = 'checkmate';
+            } else if (typeof game.chess.isStalemate === 'function' ? game.chess.isStalemate() : (game.chess as any).in_stalemate?.()) {
+                gameOverReason = 'stalemate';
+            } else if (game.chess.isDraw()) {
+                gameOverReason = 'draw';
+            }
+        }
+
         return {
             fen: game.chess.fen(),
             turn: game.chess.turn(),
@@ -115,6 +137,7 @@ export class GameService {
             history: game.chess.history(),
             isGameOver,
             winner,
+            gameOverReason,
             clocks: currentClocks,
             royalLinkUsed: game.royalLinkUsed,
         };
@@ -335,6 +358,9 @@ export class GameService {
             teleported,
             finalDest,
             royalLinkUsed: state.royalLinkUsed,
+            isGameOver: state.isGameOver,
+            winner: state.winner,
+            reason: state.gameOverReason,
         };
     }
 

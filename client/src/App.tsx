@@ -311,6 +311,7 @@ function App() {
             history={gameState.history}
             isGameOver={gameState.isGameOver}
             winner={gameState.winner}
+            gameOverReason={gameState.gameOverReason}
             clocks={clocks}
             lastMove={gameState.lastMove}
             mode={mode}

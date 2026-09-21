@@ -11,6 +11,7 @@ interface GameInfoProps {
     history: string[];
     isGameOver: boolean;
     winner: string | null;
+    gameOverReason?: string;
     clocks: { white: number; black: number };
     lastMove?: LastMoveDetails;
     mode?: string;
@@ -46,6 +47,7 @@ export const GameInfo: React.FC<GameInfoProps> = ({
     history,
     isGameOver,
     winner,
+    gameOverReason,
     clocks,
     lastMove,
     mode = 'game',
@@ -81,8 +83,11 @@ export const GameInfo: React.FC<GameInfoProps> = ({
 
     const lastMoveStr = history.length > 0 ? formatMove(history[history.length - 1]) : '';
     const isCheck = lastMoveStr.includes('+');
-    const isTimeout = isGameOver && (clocks.white === 0 || clocks.black === 0);
-    const isCheckmate = isGameOver && winner && winner !== 'draw' && !isTimeout;
+    const isTimeout = gameOverReason === 'timeout' || (isGameOver && (clocks.white === 0 || clocks.black === 0));
+    const isCheckmate = gameOverReason === 'checkmate' || (isGameOver && winner && winner !== 'draw' && !isTimeout && lastMoveStr.includes('#'));
+    const isStalemate = gameOverReason === 'stalemate';
+    const isResignation = gameOverReason === 'resignation';
+    const isMutualDraw = gameOverReason === 'mutual_agreement';
 
     const isMyRoyalLinkUsed = royalLinkUsed ? royalLinkUsed[playerColor === 'black' ? 'black' : 'white'] : false;
 
@@ -449,10 +454,28 @@ export const GameInfo: React.FC<GameInfoProps> = ({
                     >
                         <div>
                             <div style={{ fontSize: '16px', fontWeight: 800, color: '#fca5a5' }}>
-                                {isTimeout ? '⌛ Out of Time!' : isCheckmate ? '⚔️ Checkmate!' : '🏁 Game Over'}
+                                {isTimeout
+                                    ? '⌛ Out of Time!'
+                                    : isCheckmate
+                                    ? '⚔️ Checkmate!'
+                                    : isStalemate
+                                    ? '🤝 Stalemate!'
+                                    : isResignation
+                                    ? '🏳️ Resignation'
+                                    : isMutualDraw
+                                    ? '🤝 Draw Agreed'
+                                    : winner === 'draw'
+                                    ? '🤝 Draw!'
+                                    : '🏁 Game Over'}
                             </div>
                             <div style={{ fontSize: '13px', color: '#e2e8f0', marginTop: '4px' }}>
-                                {winner === 'draw' ? 'Drawn Game' : isTimeout ? `${winner?.toUpperCase()} won on time` : `Winner: ${winner?.toUpperCase()}`}
+                                {winner === 'draw'
+                                    ? (isStalemate ? 'Draw by Stalemate' : isMutualDraw ? 'Draw by Agreement' : 'Drawn Game')
+                                    : isTimeout
+                                    ? `${winner?.toUpperCase()} won on time`
+                                    : isResignation
+                                    ? `${winner?.toUpperCase()} wins by resignation`
+                                    : `Winner: ${winner?.toUpperCase()}`}
                             </div>
                         </div>
 

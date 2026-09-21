@@ -31,15 +31,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             for (const [roomId] of this.roomPlayers.entries()) {
                 if (this.finishedRooms.has(roomId)) continue;
                 const state = this.gameService.getGameState(roomId);
-                if (state && state.isGameOver && state.winner) {
-                    if (state.clocks.white === 0 || state.clocks.black === 0) {
-                        this.finishedRooms.add(roomId);
-                        this.server.to(roomId).emit('game_over', {
-                            reason: 'timeout',
-                            winner: state.winner,
-                            newState: state,
-                        });
-                    }
+                if (state && state.isGameOver) {
+                    this.finishedRooms.add(roomId);
+                    const reason = state.gameOverReason || (state.clocks.white === 0 || state.clocks.black === 0 ? 'timeout' : 'checkmate');
+                    this.server.to(roomId).emit('game_over', {
+                        reason,
+                        winner: state.winner,
+                        newState: state,
+                    });
                 }
             }
         }, 1000);
@@ -197,6 +196,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             const result = await this.gameService.processMove(payload.gameId, payload.from, payload.to, payload.promotion);
             client.emit('move_result', { ok: true, ...result });
             client.to(payload.gameId).emit('opponent_move', result);
+
+            if (result.isGameOver) {
+                this.finishedRooms.add(payload.gameId);
+                this.server.to(payload.gameId).emit('game_over', {
+                    reason: result.reason || 'checkmate',
+                    winner: result.winner,
+                    newState: this.gameService.getGameState(payload.gameId),
+                });
+            }
         } catch (e) {
             client.emit('move_result', { ok: false, error: e.message });
         }
@@ -235,6 +243,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             );
             client.emit('move_result', { ok: true, ...result });
             client.to(payload.gameId).emit('opponent_move', result);
+
+            if (result.isGameOver) {
+                this.finishedRooms.add(payload.gameId);
+                this.server.to(payload.gameId).emit('game_over', {
+                    reason: result.reason || 'checkmate',
+                    winner: result.winner,
+                    newState: this.gameService.getGameState(payload.gameId),
+                });
+            }
         } catch (e) {
             client.emit('move_result', { ok: false, error: e.message });
         }

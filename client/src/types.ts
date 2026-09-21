@@ -23,6 +23,7 @@ export interface GameState {
     history: string[];
     isGameOver: boolean;
     winner: 'white' | 'black' | 'draw' | null;
+    gameOverReason?: 'checkmate' | 'stalemate' | 'timeout' | 'resignation' | 'draw' | 'mutual_agreement' | string;
     lastMove?: LastMoveDetails;
     clocks?: { white: number; black: number };
     royalLinkUsed?: { white: boolean; black: boolean };
