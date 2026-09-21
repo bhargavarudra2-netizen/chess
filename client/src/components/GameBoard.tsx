@@ -76,9 +76,14 @@ const GameBoard: React.FC<GameBoardProps> = ({
     const onMoveRef = useRef(onMove);
     useEffect(() => { onMoveRef.current = onMove; }, [onMove]);
 
-    const inCheck = chessRef.current
-        ? (typeof chessRef.current.inCheck === 'function' ? chessRef.current.inCheck() : (typeof chessRef.current.isCheck === 'function' ? chessRef.current.isCheck() : false))
-        : false;
+    const inCheck = React.useMemo(() => {
+        try {
+            const c = new Chess(fen);
+            return typeof c.inCheck === 'function' ? c.inCheck() : (typeof c.isCheck === 'function' ? c.isCheck() : false);
+        } catch {
+            return false;
+        }
+    }, [fen]);
 
     const prevInCheckRef = useRef(false);
     useEffect(() => {
@@ -92,29 +97,35 @@ const GameBoard: React.FC<GameBoardProps> = ({
         chessRef.current = new Chess(fen);
         if (api && chessRef.current) {
             const currentInCheck = typeof chessRef.current.inCheck === 'function' ? chessRef.current.inCheck() : (typeof chessRef.current.isCheck === 'function' ? chessRef.current.isCheck() : false);
+            const checkedColor = currentInCheck ? (chessRef.current.turn() === 'w' ? 'white' : 'black') : false;
             api.set({
                 fen,
                 orientation,
                 turnColor: turn,
-                check: currentInCheck,
+                check: checkedColor,
                 highlight: {
-                    lastMove: !currentInCheck,
+                    lastMove: true,
                     check: true,
                 },
+                lastMove: lastMove?.from && lastMove?.to ? [lastMove.from as any, (lastMove.finalDest ? `${String.fromCharCode(lastMove.finalDest.c + 97)}${8 - lastMove.finalDest.r}` : lastMove.to) as any] : undefined,
                 movable: {
                     color: isAiThinking ? undefined : activeMovableColor,
                     dests: isAiThinking ? new Map() : getDests(chessRef.current, activeMovableColor),
                 },
             });
         }
-    }, [fen, turn, orientation, api, activeMovableColor, isAiThinking]);
+    }, [fen, turn, orientation, api, activeMovableColor, isAiThinking, lastMove]);
 
     useEffect(() => {
         if (boardRef.current && !api) {
             const chess = new Chess(fen);
+            const isInitialInCheck = typeof chess.inCheck === 'function' ? chess.inCheck() : (typeof chess.isCheck === 'function' ? chess.isCheck() : false);
             const config: Config = {
                 fen,
                 orientation,
+                turnColor: turn,
+                check: isInitialInCheck ? (chess.turn() === 'w' ? 'white' : 'black') : false,
+                lastMove: lastMove?.from && lastMove?.to ? [lastMove.from as any, (lastMove.finalDest ? `${String.fromCharCode(lastMove.finalDest.c + 97)}${8 - lastMove.finalDest.r}` : lastMove.to) as any] : undefined,
                 movable: {
                     color: activeMovableColor,
                     free: false,
@@ -160,7 +171,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     enabled: true,
                 },
                 highlight: {
-                    lastMove: !inCheck,
+                    lastMove: true,
                     check: true,
                 },
             };
